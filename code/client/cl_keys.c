@@ -500,6 +500,11 @@ void Field_CharEvent( field_t *edit, int ch ) {
 		return;
 	}
 
+	if (ch == 'w' - 'a' + 1) {		// ctrl-w deletes left word
+		Field_WordDelete(edit);
+		return;
+	}
+
 	len = strlen( edit->buffer );
 
 	if ( ch == 'h' - 'a' + 1 )	{	// ctrl-h is backspace

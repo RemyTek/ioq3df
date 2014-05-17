@@ -753,6 +753,7 @@ typedef struct {
 } field_t;
 
 void Field_Clear( field_t *edit );
+void Field_WordDelete(field_t *edit);
 void Field_AutoComplete( field_t *edit );
 void Field_CompleteKeyname( void );
 void Field_CompleteFilename( const char *dir,

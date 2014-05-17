@@ -3281,6 +3281,45 @@ void Field_Clear( field_t *edit ) {
 	edit->scroll = 0;
 }
 
+/*
+==================
+Field_WordDelete
+==================
+*/
+void Field_WordDelete(field_t *edit) {
+	char *p;
+	qboolean first = qtrue;
+
+	while (edit->cursor)
+	{
+		p = edit->buffer + (edit->cursor - 1);
+		if (first == qtrue && *p == ' ')
+		{
+			*p = 0;
+			edit->cursor--;
+			if (edit->cursor > 0)
+			{
+				p = edit->buffer + (edit->cursor - 1);
+				*p = 0;
+			}
+			first = qfalse;
+		}
+
+		if (*p != ' ')
+		{
+			*p = 0;
+			edit->cursor--;
+		}
+		else
+		{
+			p = edit->buffer + (edit->cursor + 1);
+			*p = 0;
+			return;
+		}
+		first = qfalse;
+	}
+}
+
 static const char *completionString;
 static char shortestMatch[MAX_TOKEN_CHARS];
 static int	matchCount;
