@@ -569,6 +569,8 @@ int		SCR_GetBigStringWidth( const char *str );	// returns in virtual 640x480 coo
 void	SCR_AdjustFrom640( float *x, float *y, float *w, float *h );
 void	SCR_FillRect( float x, float y, float width, float height, 
 					 const float *color );
+void	SCR_FillAngleYaw( float start, float end, float viewangle, float y, float height, const float *color );
+void	SCR_MarkAnglePitch( float angle, float height, float viewangle, float x, float width, const float *color );
 void	SCR_DrawPic( float x, float y, float width, float height, qhandle_t hShader );
 void	SCR_DrawNamedPic( float x, float y, float width, float height, const char *picname );
 
