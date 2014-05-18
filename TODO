@@ -2,4 +2,5 @@ add dfengine features
 add iodfe features
 add a changeable look for "missing textures"
 add advanced download features for dependencies
+add a feature to copy a link to clipboard when clicking it in the console text
 add login feature
