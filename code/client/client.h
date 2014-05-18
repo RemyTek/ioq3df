@@ -579,6 +579,13 @@ void	SCR_DrawSmallChar( int x, int y, int ch );
 
 
 //
+// cl_hud_snap.c
+//
+
+void	HUD_Init (void);
+void	HUD_Draw (void);
+
+//
 // cl_cin.c
 //
 
