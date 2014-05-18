@@ -60,6 +60,9 @@
     <ClCompile Include="..\..\code\client\cl_curl.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\code\client\cl_hud_snap.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\code\client\cl_input.c">
       <Filter>Source Files</Filter>
     </ClCompile>
