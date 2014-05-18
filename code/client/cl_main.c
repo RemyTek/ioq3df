@@ -3612,6 +3612,7 @@ void CL_Init( void ) {
 	CL_InitRef();
 
 	SCR_Init ();
+	HUD_Init (); // snap hud
 
 //	Cbuf_Execute ();
 
