@@ -527,6 +527,7 @@ void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
 			// always supply STEREO_CENTER as vieworg offset is now done by the engine.
 			CL_CGameRendering(stereoFrame);
 			SCR_DrawDemoRecording();
+			HUD_Draw (); //iodfe snap hud
 #ifdef USE_VOIP
 			SCR_DrawVoipMeter();
 #endif
