@@ -55,6 +55,11 @@ typedef struct {
 
 console_t	con;
 
+//iodfe
+cvar_t		*con_timestamp;
+cvar_t		*con_timedisplay;
+cvar_t		*con_drawversion;
+
 cvar_t		*con_conspeed;
 cvar_t		*con_notifytime;
 
@@ -73,7 +78,7 @@ void Con_ToggleConsole_f (void) {
 	}
 
 	Field_Clear( &g_consoleField );
-	g_consoleField.widthInChars = g_console_field_width;
+	g_consoleField.widthInChars = g_console_field_width - (con_timedisplay->integer ? 9 : 0);
 
 	Con_ClearNotify ();
 	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_CONSOLE );
@@ -346,6 +351,11 @@ Con_Init
 void Con_Init (void) {
 	int		i;
 
+	//iodfe
+	con_timestamp = Cvar_Get ("con_timestamp", "1", CVAR_ARCHIVE);
+	con_timedisplay = Cvar_Get ("con_timedisplay", "3", CVAR_ARCHIVE);
+	con_drawversion = Cvar_Get ("con_drawversion", "1", CVAR_ARCHIVE);
+
 	con_notifytime = Cvar_Get ("con_notifytime", "3", 0);
 	con_conspeed = Cvar_Get ("scr_conspeed", "3", 0);
 
@@ -426,6 +436,18 @@ void CL_ConsolePrint( char *txt ) {
 	unsigned short	color;
 	qboolean skipnotify = qfalse;		// NERVE - SMF
 	int prev;							// NERVE - SMF
+
+	//iodfe
+	if (con.x==0 && con_timestamp && con_timestamp->integer) {
+		char txtt[MAXPRINTMSG];
+		qtime_t	now;
+		Com_RealTime( &now );
+//		if( con_timestamp->integer == 2 )
+//			Com_sprintf(txtt,sizeof(txtt),"^9%02d:%02d ^7%s",now.tm_hour,now.tm_min,txt);
+//		else
+			Com_sprintf(txtt,sizeof(txtt),"^9%02d:%02d:%02d ^7%s",now.tm_hour,now.tm_min,now.tm_sec,txt);
+		strcpy(txt,txtt);
+	}
 
 	// TTimo - prefix for text that shows up in console but not in notify
 	// backported from RTCW
@@ -527,6 +549,7 @@ Draw the editline after a ] prompt
 */
 void Con_DrawInput (void) {
 	int		y;
+	int		x = 0;
 
 	if ( clc.state != CA_DISCONNECTED && !(Key_GetCatcher( ) & KEYCATCH_CONSOLE ) ) {
 		return;
@@ -534,11 +557,26 @@ void Con_DrawInput (void) {
 
 	y = con.vislines - ( SMALLCHAR_HEIGHT * 2 );
 
+	if (con_timedisplay->integer & 1) {
+		char ts[9];
+		int i;
+		
+		qtime_t	now;
+		Com_RealTime( &now );
+		Com_sprintf(ts,sizeof(ts),"%02d:%02d:%02d",now.tm_hour,now.tm_min,now.tm_sec);
+		
+		re.SetColor( g_color_table[ColorIndex(COLOR_ORANGE)] );
+		for (i = 0 ; i<8 ; i++) {
+			SCR_DrawSmallChar( con.xadjust + (i+1) * SMALLCHAR_WIDTH, y, ts[i] );
+		}
+		x = 9;
+	}
+
 	re.SetColor( con.color );
 
-	SCR_DrawSmallChar( con.xadjust + 1 * SMALLCHAR_WIDTH, y, ']' );
+	SCR_DrawSmallChar( con.xadjust + (x+1) * SMALLCHAR_WIDTH, y, ']' );
 
-	Field_Draw( &g_consoleField, con.xadjust + 2 * SMALLCHAR_WIDTH, y,
+	Field_Draw( &g_consoleField, con.xadjust + (x+2) * SMALLCHAR_WIDTH, y,
 		SCREEN_WIDTH - 3 * SMALLCHAR_WIDTH, qtrue, qtrue );
 }
 
@@ -579,7 +617,7 @@ void Con_DrawNotify (void)
 			continue;
 		}
 
-		for (x = 0 ; x < con.linewidth ; x++) {
+		for (x = con_timestamp->integer ? 9 : 0 ; x < con.linewidth ; x++) {
 			if ( ( text[x] & 0xff ) == ' ' ) {
 				continue;
 			}
@@ -587,7 +625,7 @@ void Con_DrawNotify (void)
 				currentColor = (text[x]>>8)&7;
 				re.SetColor( g_color_table[currentColor] );
 			}
-			SCR_DrawSmallChar( cl_conXOffset->integer + con.xadjust + (x+1)*SMALLCHAR_WIDTH, v, text[x] & 0xff );
+			SCR_DrawSmallChar( cl_conXOffset->integer + con.xadjust + (x+1-(con_timestamp->integer ? 9 : 0))*SMALLCHAR_WIDTH, v, text[x] & 0xff );
 		}
 
 		v += SMALLCHAR_HEIGHT;
@@ -667,13 +705,28 @@ void Con_DrawSolidConsole( float frac ) {
 
 	re.SetColor( g_color_table[ColorIndex(COLOR_RED)] );
 
-	i = strlen( Q3_VERSION );
+	if (con_drawversion->integer) {
+		i = strlen( Q3_VERSION );
 
-	for (x=0 ; x<i ; x++) {
-		SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x + 1 ) * SMALLCHAR_WIDTH,
-			lines - SMALLCHAR_HEIGHT, Q3_VERSION[x] );
+		for (x=0 ; x<i ; x++) {
+			SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x + 1 ) * SMALLCHAR_WIDTH, 
+				lines - (SMALLCHAR_HEIGHT * (con_drawversion->integer ? 2 : 1) + SMALLCHAR_HEIGHT/2), ts[x]);
+		}
 	}
 
+	if (con_timedisplay->integer & 2) {
+		char ts[30];
+		qtime_t	now;
+
+		Com_RealTime( &now );
+		Com_sprintf(ts,sizeof(ts),"%02d:%02d:%02d %04d-%02d-%02d",now.tm_hour,now.tm_min,now.tm_sec,1900 + now.tm_year,1 + now.tm_mon,now.tm_mday);
+		i = strlen( ts );
+
+		for (x = 0 ; x<i ; x++) {
+			SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x ) * SMALLCHAR_WIDTH, 
+				lines - (SMALLCHAR_HEIGHT * (con_drawversion->integer ? 2 : 1) + SMALLCHAR_HEIGHT/2), ts[x]);
+		}
+	}
 
 	// draw the text
 	con.vislines = lines;
