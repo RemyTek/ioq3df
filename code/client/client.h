@@ -45,6 +45,17 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #define	RETRANSMIT_TIMEOUT	3000	// time between connection packet retransmits
 
+//iodfe snap hud
+#define SNAPHUD_MAXZONES		128
+
+typedef struct {
+	int			speed;
+	float		zones[SNAPHUD_MAXZONES];
+	int			count;
+	vec2_t		m;
+	qboolean	promode;
+} snappingHud_t;
+
 // snapshots are a view of the server at a given time
 typedef struct {
 	qboolean		valid;			// cleared if delta parsing was invalid
@@ -133,6 +144,8 @@ typedef struct {
 	// tracked view angles to account for standing on rotating objects,
 	// and teleport direction changes
 	vec3_t		viewangles;
+
+	snappingHud_t	snappinghud;
 
 	int			serverId;			// included in each client message so the server
 												// can tell if it is for a prior map_restart
