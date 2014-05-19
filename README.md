@@ -4,7 +4,9 @@ ioq3df
 ioq3df is an engine for the Quake III Arena modification Defrag. It is a fork of ioquake3 to support Defrag specific features.
 
 
-iodfe snap hud:
+iodfe features by runaos:
+
+snap hud:
 
 iodfe_hud_snap_draw 1	- snapping hud, shows zones of possible acceleration (for 8 ms frametime)
 iodfe_hud_snap_auto	- auto-shifting angle of the hud for different strafe styles
@@ -20,3 +22,11 @@ iodfe_hud_pitch_rgba	- color
 iodfe_hud_pitch_thickness
 iodfe_hud_pitch_width
 iodfe_hud_pitch_x	- x position
+
+con_timestamp [0-1]	- adds a timestamp at each message in console
+con_timedisplay [0-3]	- displays time at input line (1), at right bottom console corner (2) or at both places (3)
+con_drawversion		- toggles version at right bottom console corner
+
+in_numpadbug [0-1] 	- fixes non-working numpad on Windows
+
+r_xpos, r_ypos		- game window position

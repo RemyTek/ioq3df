@@ -474,6 +474,64 @@ void Field_KeyDownEvent( field_t *edit, int key ) {
 			break;
 	}
 
+	if (in_numpadbug->integer){
+
+			switch ( key ) {
+		
+		case K_KP_INS:
+			Field_CharEvent( edit, '0' );
+			break;
+			
+		case K_KP_END:
+			Field_CharEvent( edit, '1' );
+			break;
+
+		case K_KP_DOWNARROW:
+			Field_CharEvent( edit, '2' );
+			break;
+
+		case K_KP_PGDN:
+			Field_CharEvent( edit, '3' );
+			break;
+
+		case K_KP_LEFTARROW:
+			Field_CharEvent( edit, '4' );
+			break;
+
+		case K_KP_5:
+			Field_CharEvent( edit, '5' );
+			break;
+
+		case K_KP_RIGHTARROW:
+			Field_CharEvent( edit, '6' );
+			break;
+
+		case K_KP_HOME:
+			Field_CharEvent( edit, '7' );
+			break;
+
+		case K_KP_UPARROW:
+			Field_CharEvent( edit, '8' );
+			break;
+
+		case K_KP_PGUP:
+			Field_CharEvent( edit, '9' );
+			break;
+
+		case K_KP_DEL:
+			Field_CharEvent( edit, '.' );
+			break;
+
+		case K_KP_SLASH:
+			Field_CharEvent( edit, '/' );
+			break;
+
+		default:
+			break;
+							}
+
+	}
+
 	// Change scroll if cursor is no longer visible
 	if ( edit->cursor < edit->scroll ) {
 		edit->scroll = edit->cursor;
