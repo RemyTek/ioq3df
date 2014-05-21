@@ -565,7 +565,7 @@ void Con_DrawInput (void) {
 		Com_RealTime( &now );
 		Com_sprintf(ts,sizeof(ts),"%02d:%02d:%02d",now.tm_hour,now.tm_min,now.tm_sec);
 		
-		re.SetColor( g_color_table[ColorIndex(COLOR_ORANGE)] );
+		re.SetColor( g_color_table[ColorIndex(COLOR_RED)] );
 		for (i = 0 ; i<8 ; i++) {
 			SCR_DrawSmallChar( con.xadjust + (i+1) * SMALLCHAR_WIDTH, y, ts[i] );
 		}
@@ -710,7 +710,7 @@ void Con_DrawSolidConsole( float frac ) {
 
 		for (x=0 ; x<i ; x++) {
 			SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x + 1 ) * SMALLCHAR_WIDTH, 
-				lines - (SMALLCHAR_HEIGHT * (con_drawversion->integer ? 2 : 1) + SMALLCHAR_HEIGHT/2), ts[x]);
+				(lines-(SMALLCHAR_HEIGHT+SMALLCHAR_HEIGHT/2)), Q3_VERSION[x] );
 		}
 	}
 
