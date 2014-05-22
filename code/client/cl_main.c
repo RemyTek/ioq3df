@@ -119,6 +119,8 @@ cvar_t	*cl_guidServerUniq;
 
 cvar_t	*cl_consoleKeys;
 
+cvar_t	*cg_teamChatsOnly;
+
 cvar_t	*cl_rate;
 
 clientActive_t		cl;
@@ -2919,6 +2921,7 @@ void CL_Frame ( int msec ) {
 			SCR_UpdateScreen();
 			S_Update();
 			Con_RunConsole();
+			ChatCon_RunConsole();
 			cls.framecount++;
 			return;
 		}
@@ -3034,6 +3037,7 @@ void CL_Frame ( int msec ) {
 	SCR_RunCinematic();
 
 	Con_RunConsole();
+	ChatCon_RunConsole();
 
 	cls.framecount++;
 }
@@ -3102,6 +3106,8 @@ void CL_InitRenderer( void ) {
 	cls.consoleShader = re.RegisterShader( "console" );
 	g_console_field_width = cls.glconfig.vidWidth / SMALLCHAR_WIDTH - 2;
 	g_consoleField.widthInChars = g_console_field_width;
+	g_chatconsole_field_width = cls.glconfig.vidWidth / SMALLCHAR_WIDTH - 2;
+	g_chatconsoleField.widthInChars = g_chatconsole_field_width;
 }
 
 /*
@@ -3416,6 +3422,7 @@ void CL_Init( void ) {
 	Com_Printf( "----- Client Initialization -----\n" );
 
 	Con_Init ();
+	ChatCon_Init ();
 
 	if(!com_fullyInitialized)
 	{
@@ -3614,6 +3621,8 @@ void CL_Init( void ) {
 	SCR_Init ();
 	HUD_Init (); // snap hud
 
+	cg_teamChatsOnly = Cvar_Get( "cg_teamChatsOnly", "0", CVAR_ARCHIVE);
+
 //	Cbuf_Execute ();
 
 	Cvar_Set( "cl_running", "1" );
@@ -3682,6 +3691,7 @@ void CL_Shutdown(char *finalmsg, qboolean disconnect, qboolean quit)
 
 	CL_ShutdownInput();
 	Con_Shutdown();
+	ChatCon_Shutdown();
 
 	Cvar_Set( "cl_running", "0" );
 

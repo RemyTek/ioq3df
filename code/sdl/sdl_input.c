@@ -982,6 +982,11 @@ void IN_Frame( void )
 		// Console is down in windowed mode
 		IN_DeactivateMouse( );
 	}
+	else if( !Cvar_VariableIntegerValue("r_fullscreen") && ( Key_GetCatcher( ) & KEYCATCH_CHATCONSOLE ) )
+	{
+		// Console is down in windowed mode
+		IN_DeactivateMouse( );
+	}
 	else if( !Cvar_VariableIntegerValue("r_fullscreen") && loading )
 	{
 		// Loading in windowed mode

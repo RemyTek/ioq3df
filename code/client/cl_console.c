@@ -82,6 +82,7 @@ void Con_ToggleConsole_f (void) {
 
 	Con_ClearNotify ();
 	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_CONSOLE );
+	Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CHATCONSOLE );
 }
 
 /*
@@ -882,4 +883,6 @@ void Con_Close( void ) {
 	Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CONSOLE );
 	con.finalFrac = 0;				// none visible
 	con.displayFrac = 0;
+
+	ChatCon_Close();
 }

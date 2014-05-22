@@ -34,6 +34,7 @@ int			historyLine;	// the line being displayed from history buffer
 							// will be <= nextHistoryLine
 
 field_t		g_consoleField;
+field_t		g_chatconsoleField;
 field_t		chatField;
 qboolean	chat_team;
 
@@ -634,6 +635,168 @@ CONSOLE LINE EDITING
 
 /*
 ====================
+ChatConsole_Key
+
+Handles history and console scrollback
+====================
+*/
+void ChatConsole_Key (int key) {
+	if ( key == K_ESCAPE ) {
+		Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CHATCONSOLE );
+		Field_Clear( &g_chatconsoleField );
+		return;
+	}
+
+	// ctrl-L clears screen
+	if ( key == 'l' && keys[K_CTRL].down ) {
+		Cbuf_AddText ("chatclear\n");
+		return;
+	}
+
+	// enter finishes the line
+	if ( key == K_ENTER || key == K_KP_ENTER ) {
+		// if not in the game explicitly prepend a slash if needed
+		if ( clc.state != CA_ACTIVE &&
+				g_chatconsoleField.buffer[0] &&
+				g_chatconsoleField.buffer[0] != '\\' &&
+				g_chatconsoleField.buffer[0] != '/' ) {
+			char	temp[MAX_EDIT_LINE-1];
+
+			Q_strncpyz( temp, g_chatconsoleField.buffer, sizeof( temp ) );
+			Com_sprintf( g_chatconsoleField.buffer, sizeof( g_chatconsoleField.buffer ), "\\%s", temp );
+			g_chatconsoleField.cursor++;
+		}
+
+		// leading slash is an explicit command
+		if ( g_chatconsoleField.buffer[0] == '\\' || g_chatconsoleField.buffer[0] == '/' ) {
+
+			//switch to console
+			Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_CONSOLE );
+			Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CHATCONSOLE );
+
+			Com_Printf ( "]%s\n", g_chatconsoleField.buffer );
+
+			Cbuf_AddText( g_chatconsoleField.buffer+1 );	// valid command
+			Cbuf_AddText ("\n");
+		} else {
+			// other text will be chat messages
+			if ( !g_chatconsoleField.buffer[0] ) {
+				return;	// empty lines just scroll the console without adding to history
+			} else {
+				Cbuf_AddText ("cmd say ");
+				Cbuf_AddText( g_chatconsoleField.buffer );
+				Cbuf_AddText ("\n");
+			}
+		}
+
+/*		// copy line to history buffer
+		historyEditLines[nextHistoryLine % COMMAND_HISTORY] = g_chatconsoleField;
+		nextHistoryLine++;
+		historyLine = nextHistoryLine;
+*/
+		Field_Clear( &g_chatconsoleField );
+
+		g_chatconsoleField.widthInChars = g_chatconsole_field_width;
+
+//		CL_SaveConsoleHistory( );
+
+		if ( clc.state == CA_DISCONNECTED ) {
+			SCR_UpdateScreen ();	// force an update, because the command
+		}							// may take some time
+		return;
+	}
+
+	// command completion
+
+	if (key == K_TAB) {
+		if ( g_chatconsoleField.buffer[0] == '\\' || g_chatconsoleField.buffer[0] == '/' ) {
+			//switch to console
+			Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_CONSOLE );
+			Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CHATCONSOLE );
+
+			Q_strncpyz( g_consoleField.buffer, g_consoleField.buffer, sizeof( g_consoleField.buffer ) );
+			Field_Clear( &g_chatconsoleField );
+
+		} else {
+			Field_AutoComplete(&g_chatconsoleField);
+		}
+		return;
+	}
+
+	// command history (ctrl-p ctrl-n for unix style)
+
+/*	if ( (key == K_MWHEELUP && keys[K_SHIFT].down) || ( key == K_UPARROW ) || ( key == K_KP_UPARROW ) ||
+		 ( ( tolower(key) == 'p' ) && keys[K_CTRL].down ) ) {
+		if ( nextHistoryLine - historyLine < COMMAND_HISTORY 
+			&& historyLine > 0 ) {
+			historyLine--;
+		}
+		g_chatconsoleField = historyEditLines[ historyLine % COMMAND_HISTORY ];
+		return;
+	}
+
+	if ( (key == K_MWHEELDOWN && keys[K_SHIFT].down) || ( key == K_DOWNARROW ) || ( key == K_KP_DOWNARROW ) ||
+		 ( ( tolower(key) == 'n' ) && keys[K_CTRL].down ) ) {
+		historyLine++;
+		if (historyLine >= nextHistoryLine) {
+			historyLine = nextHistoryLine;
+			Field_Clear( &g_chatconsoleField );
+			g_chatconsoleField.widthInChars = g_console_field_width;
+			return;
+		}
+		g_chatconsoleField = historyEditLines[ historyLine % COMMAND_HISTORY ];
+		return;
+	}
+*/
+	// console scrolling
+	if ( key == K_PGUP ) {
+		ChatCon_PageUp();
+		return;
+	}
+
+	if ( key == K_PGDN) {
+		ChatCon_PageDown();
+		return;
+	}
+
+	if ( key == K_MWHEELUP) {	//----(SA)	added some mousewheel functionality to the console
+		ChatCon_PageUp();
+		if(keys[K_CTRL].down) {	// hold <ctrl> to accelerate scrolling
+			ChatCon_PageUp();
+			ChatCon_PageUp();
+		}
+		return;
+	}
+
+	if ( key == K_MWHEELDOWN) {	//----(SA)	added some mousewheel functionality to the console
+		ChatCon_PageDown();
+		if(keys[K_CTRL].down) {	// hold <ctrl> to accelerate scrolling
+			ChatCon_PageDown();
+			ChatCon_PageDown();
+		}
+		return;
+	}
+
+	// ctrl-home = top of console
+	if ( key == K_HOME && keys[K_CTRL].down ) {
+		ChatCon_Top();
+		return;
+	}
+
+	// ctrl-end = bottom of console
+	if ( key == K_END && keys[K_CTRL].down ) {
+		ChatCon_Bottom();
+		return;
+	}
+
+	// pass to the normal editline routine
+	Field_KeyDownEvent( &g_chatconsoleField, key );
+}
+
+//============================================================================
+
+/*
+====================
 Console_Key
 
 Handles history and console scrollback
@@ -1199,6 +1362,14 @@ static qboolean CL_BindUICommand( const char *cmd ) {
 	if ( !Q_stricmp( cmd, "togglemenu" ) )
 		return qtrue;
 
+	if ( Key_GetCatcher( ) & KEYCATCH_CHATCONSOLE )
+		return qfalse;
+
+	if ( !Q_stricmp( cmd, "togglechatconsole" ) )
+		return qtrue;
+	if ( !Q_stricmp( cmd, "togglechatmenu" ) )
+		return qtrue;
+
 	return qfalse;
 }
 
@@ -1287,6 +1458,12 @@ void CL_KeyDownEvent( int key, unsigned time )
 		Key_ClearStates ();
 		return;
 	}
+	if( keys[K_CTRL].down && key == K_TAB )
+	{
+		ChatCon_ToggleConsole_f ();
+		Key_ClearStates ();
+		return;
+	}
 
 
 	// keys can still be used for bound actions
@@ -1301,6 +1478,12 @@ void CL_KeyDownEvent( int key, unsigned time )
 
 	// escape is always handled special
 	if ( key == K_ESCAPE ) {
+		if ( Key_GetCatcher( ) & KEYCATCH_CHATCONSOLE ) {
+			// clear message mode
+			ChatConsole_Key( key );
+			return;
+		}
+
 		if ( Key_GetCatcher( ) & KEYCATCH_MESSAGE ) {
 			// clear message mode
 			Message_Key( key );
@@ -1336,6 +1519,8 @@ void CL_KeyDownEvent( int key, unsigned time )
 	// distribute the key down event to the apropriate handler
 	if ( Key_GetCatcher( ) & KEYCATCH_CONSOLE ) {
 		Console_Key( key );
+	} else if ( Key_GetCatcher( ) & KEYCATCH_CHATCONSOLE ) {
+		ChatConsole_Key( key );
 	} else if ( Key_GetCatcher( ) & KEYCATCH_UI ) {
 		if ( uivm ) {
 			VM_Call( uivm, UI_KEY_EVENT, key, qtrue );
@@ -1420,6 +1605,10 @@ void CL_CharEvent( int key ) {
 	if ( Key_GetCatcher( ) & KEYCATCH_CONSOLE )
 	{
 		Field_CharEvent( &g_consoleField, key );
+	}
+	else if ( Key_GetCatcher( ) & KEYCATCH_CHATCONSOLE )
+	{
+		Field_CharEvent( &g_chatconsoleField, key );
 	}
 	else if ( Key_GetCatcher( ) & KEYCATCH_UI )
 	{

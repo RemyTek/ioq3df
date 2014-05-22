@@ -101,6 +101,7 @@ typedef struct {
 #define	MAX_PARSE_ENTITIES	( PACKET_BACKUP * MAX_SNAPSHOT_ENTITIES )
 
 extern int g_console_field_width;
+extern int g_chatconsole_field_width;
 
 typedef struct {
 	int			timeoutcount;		// it requres several frames in a timeout condition
@@ -546,6 +547,24 @@ void	CL_Ping_f( void );
 qboolean CL_UpdateVisiblePings_f( int source );
 
 
+extern cvar_t *cg_teamChatsOnly;
+//
+// chat console
+//
+void ChatCon_CheckResize (void);
+void ChatCon_Init(void);
+void ChatCon_Shutdown(void);
+void ChatCon_Clear_f (void);
+void ChatCon_ToggleConsole_f (void);
+void ChatCon_RunConsole (void);
+void ChatCon_DrawConsole (void);
+void ChatCon_PageUp( void );
+void ChatCon_PageDown( void );
+void ChatCon_Top( void );
+void ChatCon_Bottom( void );
+void ChatCon_Close( void );
+
+void Cmd_CompleteTxtName( char *args, int argNum );
 //
 // console
 //
