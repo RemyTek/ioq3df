@@ -35,6 +35,7 @@ int			r_firstScenePoly;
 
 int			r_numpolyverts;
 
+vec2_t			cgamefov;
 
 /*
 ====================
@@ -516,6 +517,11 @@ void RE_RenderScene( const refdef_t *fd ) {
 				R_RenderCubemapSide(i, j, qtrue);
 			}
 		}
+	}
+
+	if ( !fd->rdflags ) {
+		cgamefov[0]=fd->fov_x;
+		cgamefov[1]=fd->fov_y;
 	}
 
 	// setup view parms for the initial view
