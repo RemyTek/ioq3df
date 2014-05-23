@@ -54,6 +54,9 @@
     <ClCompile Include="..\..\code\client\cl_cin.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\code\client\cl_chatconsole.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\code\client\cl_console.c">
       <Filter>Source Files</Filter>
     </ClCompile>
