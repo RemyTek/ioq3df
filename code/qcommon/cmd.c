@@ -571,6 +571,10 @@ static void Cmd_TokenizeString2( const char *text_in, qboolean ignoreQuotes ) {
 		cmd_argv[cmd_argc] = textOut;
 		cmd_argc++;
 
+		// handle starting ://
+		if ( text[0] == ':' && text[1] == '/'  && text[2] == '/' ) {
+			*textOut++ = *text++;		
+		} else
 		// skip until whitespace, quote, or command
 		while ( *text > ' ' ) {
 			if ( !ignoreQuotes && text[0] == '"' ) {
@@ -578,7 +582,9 @@ static void Cmd_TokenizeString2( const char *text_in, qboolean ignoreQuotes ) {
 			}
 
 			if ( text[0] == '/' && text[1] == '/' ) {
-				break;
+				//allow :// urls
+				if ( !( *(text-1) == ':' && *(text+2) > ' ' ) )
+					break;
 			}
 
 			// skip /* */ comments
