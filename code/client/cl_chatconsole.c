@@ -184,6 +184,7 @@ void ChatCon_Dump_f (void)
 		FS_Write(buffer, strlen(buffer), f);
 	}
 
+
 	Hunk_FreeTempMemory( buffer );
 	FS_FCloseFile( f );
 }
@@ -657,13 +658,13 @@ void ChatCon_DrawConsole( void ) {
 	ChatCon_CheckResize ();
 
 	// if disconnected, render console full screen
-	if ( clc.state == CA_DISCONNECTED ) {
+/*	if ( clc.state == CA_DISCONNECTED ) {
 		if ( !( Key_GetCatcher( ) & (KEYCATCH_UI | KEYCATCH_CGAME)) ) {
 			ChatCon_DrawSolidConsole( 1.0 );
 			return;
 		}
 	}
-
+*/
 	if ( chatcon.displayFrac ) {
 		ChatCon_DrawSolidConsole( chatcon.displayFrac );
 	} else {
@@ -740,4 +741,109 @@ void ChatCon_Close( void ) {
 	Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CHATCONSOLE );
 	chatcon.finalFrac = 0;				// none visible
 	chatcon.displayFrac = 0;
+}
+
+
+
+
+//modify this if ChatCon_DrawSolidConsole gets changed
+void ChatCon_CopyUrl( void ) {
+	int textlinenum;
+	int textlines;
+	int xpos;
+	short *text;
+	int	row;
+	int	x;
+	char *line;
+	char *p;
+	char *word;
+
+	textlines = ( chatcon.vislines - 3 * SMALLCHAR_HEIGHT ) / SMALLCHAR_HEIGHT;
+
+	textlinenum = ( ( textlines - floor( mouse_button_click_y / SMALLCHAR_HEIGHT ) ) );
+	if( textlinenum < 0 )
+		return;
+
+	xpos = floor( (mouse_button_click_x - chatcon.xadjust - SMALLCHAR_WIDTH ) / SMALLCHAR_WIDTH );
+	if( xpos < 0 )
+		return;
+
+	
+	row = chatcon.display;
+
+	if (chatcon.current - row >= chatcon.totallines) {
+		// past scrollback wrap point
+		return;
+	}
+	row = chatcon.display - textlinenum;
+	if( chatcon.display == chatcon.current )
+	{
+		row--;
+	}
+	if( row < 0 )
+		return;
+	
+	text = chatcon.text + (row % chatcon.totallines)*chatcon.linewidth;
+
+	line = Hunk_AllocateTempMemory( chatcon.linewidth + 1 );
+
+	for( x=0 ; x<chatcon.linewidth; x++ ) 
+	{
+		line[x] = text[x] & 0xff;
+	}
+	line[chatcon.linewidth] = '\0';
+
+
+	word = NULL;
+	p = line;
+
+	if( p[0] > ' ' )
+	{
+		word = p;
+	}
+	//find the clicked word
+	while( *p )
+	{
+		if( p[0] <= ' ' ) 
+		{
+			if( p == ( line + xpos ) )
+			{
+				word = NULL; //whitespace clicked
+				break; 
+			}
+			if( p[1] > ' ' )
+			{
+				word = p + 1; //next word start
+			}
+		} else 
+		{
+			if( p == ( line + xpos ) )
+			{
+				p++;
+				while( *p )
+				{
+					if( p[0] <= ' ' ) 
+					{
+						break;
+					}
+					p++;
+				}
+				p[0] = '\0';
+				break;
+			}
+		}
+		p++;
+	}
+	if( word )
+	{
+		//catching any URL
+		if( strstr( word, "://" ) )
+		{
+			Sys_CopyTextToClipboard( word );
+
+		}
+	}
+
+	Hunk_FreeTempMemory( line );
+
 }

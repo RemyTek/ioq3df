@@ -840,6 +840,8 @@ void		Com_StartupVariable( const char *match );
 // only a set with the exact name.  Only used during startup.
 
 extern  cvar_t	*in_numpadbug; //iodfe
+extern unsigned int mouse_button_click_x;
+extern unsigned int mouse_button_click_y;
 
 extern	cvar_t	*com_developer;
 extern	cvar_t	*com_dedicated;
@@ -1140,6 +1142,8 @@ typedef enum
 dialogResult_t Sys_Dialog( dialogType_t type, const char *message, const char *title );
 
 qboolean Sys_WritePIDFile( void );
+
+void Sys_CopyTextToClipboard( const char *text );
 
 /* This is based on the Adaptive Huffman algorithm described in Sayood's Data
  * Compression book.  The ranks are not actually stored, but implicitly defined

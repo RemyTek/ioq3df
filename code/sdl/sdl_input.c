@@ -47,6 +47,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <IOKit/hidsystem/event_status_driver.h>
 #endif
 
+unsigned int mouse_button_click_x;
+unsigned int mouse_button_click_y;
+
 static cvar_t *in_keyboardDebug     = NULL;
 
 static SDL_Joystick *stick = NULL;
@@ -924,6 +927,8 @@ static void IN_ProcessEvents( void )
 						case SDL_BUTTON_X2:			b = K_MOUSE5;     break;
 						default:  b = K_AUX1 + ( e.button.button - SDL_BUTTON_X2 + 1 ) % 16; break;
 					}
+					mouse_button_click_x = e.button.x;
+					mouse_button_click_y = e.button.y;
 					Com_QueueEvent( 0, SE_KEY, b,
 						( e.type == SDL_MOUSEBUTTONDOWN ? qtrue : qfalse ), 0, NULL );
 				}

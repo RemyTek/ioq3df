@@ -153,6 +153,9 @@
     <ClCompile Include="..\..\code\client\qal.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\code\sdl\sdl_clipboard.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\code\sdl\sdl_gamma.c">
       <Filter>Source Files</Filter>
     </ClCompile>

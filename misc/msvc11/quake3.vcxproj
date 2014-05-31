@@ -1274,6 +1274,7 @@
     <ClCompile Include="..\..\code\qcommon\q_math.c" />
     <ClCompile Include="..\..\code\qcommon\q_shared.c" />
     <ClCompile Include="..\..\code\client\qal.c" />
+    <ClCompile Include="..\..\code\sdl\sdl_clipboard.c" />
     <ClCompile Include="..\..\code\sdl\sdl_gamma.c" />
     <ClCompile Include="..\..\code\sdl\sdl_glimp.c" />
     <ClCompile Include="..\..\code\sdl\sdl_input.c" />

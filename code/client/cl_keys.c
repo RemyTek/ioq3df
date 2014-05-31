@@ -641,6 +641,11 @@ Handles history and console scrollback
 ====================
 */
 void ChatConsole_Key (int key) {
+	if ( key == K_MOUSE1 ) {
+		ChatCon_CopyUrl();
+		return;
+	}
+
 	if ( key == K_ESCAPE ) {
 		Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CHATCONSOLE );
 		Field_Clear( &g_chatconsoleField );

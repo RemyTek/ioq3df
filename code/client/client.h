@@ -563,6 +563,7 @@ void ChatCon_PageDown( void );
 void ChatCon_Top( void );
 void ChatCon_Bottom( void );
 void ChatCon_Close( void );
+void ChatCon_CopyUrl( void );
 
 void Cmd_CompleteTxtName( char *args, int argNum );
 //
