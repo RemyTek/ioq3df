@@ -81,6 +81,7 @@ static const serverFilter_t serverFilters[] = {
 	{"Alliance", "alliance20" },
 	{"Weapons Factory Arena", "wfa" },
 	{"OSP", "osp" },
+	{"Defrag", "defrag" },
 };
 
 static const int numServerFilters = ARRAY_LEN( serverFilters );
