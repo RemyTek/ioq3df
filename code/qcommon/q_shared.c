@@ -350,7 +350,7 @@ string will be returned if the next token is
 a newline.
 ==============
 */
-static char *SkipWhitespace( char *data, qboolean *hasNewLines ) {
+char *SkipWhitespace( char *data, qboolean *hasNewLines ) {
 	int c;
 
 	while( (c = *data) <= ' ') {

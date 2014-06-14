@@ -451,6 +451,9 @@ static void CL_ParseServerInfo(void)
 	Q_strncpyz(clc.sv_dlURL,
 		Info_ValueForKey(serverInfo, "sv_dlURL"),
 		sizeof(clc.sv_dlURL));
+
+	Cvar_Set( "autoloadmap", Info_ValueForKey(serverInfo, "mapname") );
+
 }
 
 /*
@@ -549,6 +552,7 @@ void CL_ParseGamestate( msg_t *msg ) {
 
 	// make sure the game starts
 	Cvar_Set( "cl_paused", "0" );
+	Cvar_Set( "autoloadmap", "" );
 }
 
 

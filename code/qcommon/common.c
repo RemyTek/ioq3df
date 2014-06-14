@@ -3627,3 +3627,20 @@ qboolean Com_IsVoipTarget(uint8_t *voipTargets, int voipTargetsSize, int clientN
 
 	return qfalse;
 }
+
+/*
+===============
+Field_CompleteFilename
+===============
+*/
+void Field_CompleteMapFilename( const char *dir,
+		const char *ext, qboolean stripExt, qboolean allowNonPureFilesOnDisk )
+{
+	matchCount = 0;
+	shortestMatch[ 0 ] = 0;
+
+	FS_MapFilenameCompletion( dir, ext, stripExt, FindMatches, allowNonPureFilesOnDisk );
+
+	if( !Field_Complete( ) )
+		FS_MapFilenameCompletion( dir, ext, stripExt, PrintMatches, allowNonPureFilesOnDisk );
+}

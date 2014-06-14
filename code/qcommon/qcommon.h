@@ -732,6 +732,10 @@ void FS_HomeRemove( const char *homePath );
 
 void	FS_FilenameCompletion( const char *dir, const char *ext,
 		qboolean stripExt, void(*callback)(const char *s), qboolean allowNonPureFilesOnDisk );
+void	FS_MapFilenameCompletion( const char *dir, const char *ext,
+		qboolean stripExt, void(*callback)(const char *s), qboolean allowNonPureFilesOnDisk );
+void FS_AutoLoadMapCmd( const char *map );
+void FS_AutoLoad( const char *gameName, cvar_t *fs_basepath, cvar_t *fs_homepath, cvar_t *fs_gamedirvar );
 
 const char *FS_GetCurrentGameDir(void);
 qboolean FS_Which(const char *filename, void *searchPath);
@@ -760,6 +764,8 @@ void Field_CompleteFilename( const char *dir,
 		const char *ext, qboolean stripExt, qboolean allowNonPureFilesOnDisk );
 void Field_CompleteCommand( char *cmd,
 		qboolean doCommands, qboolean doCvars );
+void Field_CompleteMapFilename( const char *dir,
+		const char *ext, qboolean stripExt, qboolean allowNonPureFilesOnDisk );
 
 /*
 ==============================================================

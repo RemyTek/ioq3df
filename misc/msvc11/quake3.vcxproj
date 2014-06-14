@@ -679,6 +679,7 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="..\..\code\jsmn\jsmn.c" />
     <ClCompile Include="..\..\code\client\cl_curl.c" />
     <ClCompile Include="..\..\code\client\cl_hud_snap.c">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug TA|Win32'">Disabled</Optimization>
@@ -1845,6 +1846,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\code\game\bg_public.h" />
     <ClInclude Include="..\..\code\cgame\cg_public.h" />
+    <ClInclude Include="..\..\code\jsmn\jsmn.h" />
     <ClInclude Include="..\..\code\client\cl_curl.h" />
     <ClInclude Include="..\..\code\client\client.h" />
     <ClInclude Include="..\..\code\qcommon\cm_local.h" />

@@ -596,6 +596,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\..\code\jsmn\jsmn.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\code\client\cl_curl.c"
 				>
 			</File>
@@ -2530,6 +2534,10 @@
 			</File>
 			<File
 				RelativePath="..\..\code\cgame\cg_public.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\code\jsmn\jsmn.h"
 				>
 			</File>
 			<File

@@ -60,6 +60,9 @@
     <ClCompile Include="..\..\code\client\cl_console.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\code\jsmn\jsmn.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\code\client\cl_curl.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -699,6 +702,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\code\cgame\cg_public.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\code\jsmn\jsmn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\code\client\cl_curl.h">

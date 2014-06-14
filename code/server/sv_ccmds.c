@@ -166,8 +166,11 @@ static void SV_Map_f( void ) {
 	// a typo at the server console won't end the game
 	Com_sprintf (expanded, sizeof(expanded), "maps/%s.bsp", map);
 	if ( FS_ReadFile (expanded, NULL) == -1 ) {
-		Com_Printf ("Can't find map %s\n", expanded);
-		return;
+		FS_AutoLoadMapCmd( map );
+		if ( FS_ReadFile (expanded, NULL) == -1 ) {
+			Com_Printf ("Can't find map %s\n", expanded);
+			return;
+		}
 	}
 
 	// force latched values to get set
@@ -1403,7 +1406,7 @@ SV_CompleteMapName
 */
 static void SV_CompleteMapName( char *args, int argNum ) {
 	if( argNum == 2 ) {
-		Field_CompleteFilename( "maps", "bsp", qtrue, qfalse );
+		Field_CompleteMapFilename( "maps", "bsp", qtrue, qfalse );
 	}
 }
 

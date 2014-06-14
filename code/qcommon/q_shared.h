@@ -729,6 +729,7 @@ void	COM_StripExtension(const char *in, char *out, int destsize);
 qboolean COM_CompareExtension(const char *in, const char *ext);
 void	COM_DefaultExtension( char *path, int maxSize, const char *extension );
 
+char *SkipWhitespace( char *data, qboolean *hasNewLines );
 void	COM_BeginParseSession( const char *name );
 int		COM_GetCurrentParseLine( void );
 char	*COM_Parse( char **data_p );
