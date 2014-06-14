@@ -1493,8 +1493,10 @@ $(Q3ASM): $(Q3ASMOBJ)
 Q3OBJ = \
   $(B)/client/cl_cgame.o \
   $(B)/client/cl_cin.o \
+  $(B)/client/cl_chatconsole.o \
   $(B)/client/cl_console.o \
   $(B)/client/cl_hud_snap.o \
+  $(B)/client/cl_chatconsole.o \
   $(B)/client/cl_input.o \
   $(B)/client/cl_keys.o \
   $(B)/client/cl_main.o \
@@ -1536,6 +1538,7 @@ Q3OBJ = \
   $(B)/client/qal.o \
   $(B)/client/snd_openal.o \
   \
+  $(B)/jsmn/jsmn.o \
   $(B)/client/cl_curl.o \
   \
   $(B)/client/sv_bot.o \
@@ -1637,6 +1640,7 @@ Q3R2OBJ = \
   $(B)/renderergl2/tr_vbo.o \
   $(B)/renderergl2/tr_world.o \
   \
+  $(B)/renderergl1/sdl_clipboard.o \
   $(B)/renderergl1/sdl_gamma.o \
   $(B)/renderergl1/sdl_glimp.o
 
@@ -1701,6 +1705,7 @@ Q3ROBJ = \
   $(B)/renderergl1/tr_surface.o \
   $(B)/renderergl1/tr_world.o \
   \
+  $(B)/renderergl1/sdl_clipboard.o \
   $(B)/renderergl1/sdl_gamma.o \
   $(B)/renderergl1/sdl_glimp.o
 
@@ -2635,6 +2640,7 @@ $(B)/ded/%.o: $(NDIR)/%.c
 
 # Extra dependencies to ensure the git version is incorporated
 ifeq ($(USE_GIT),1)
+  $(B)/client/cl_chatconsole.o : .git/index
   $(B)/client/cl_console.o : .git/index
   $(B)/client/common.o : .git/index
   $(B)/ded/common.o : .git/index
