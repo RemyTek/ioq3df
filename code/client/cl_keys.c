@@ -719,7 +719,7 @@ void ChatConsole_Key (int key) {
 			Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_CONSOLE );
 			Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CHATCONSOLE );
 
-			Q_strncpyz( g_consoleField.buffer, g_consoleField.buffer, sizeof( g_consoleField.buffer ) );
+			Q_strncpyz( g_consoleField.buffer, g_chatconsoleField.buffer, sizeof( g_consoleField.buffer ) );
 			Field_Clear( &g_chatconsoleField );
 
 		} else {
