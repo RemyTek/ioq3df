@@ -4152,7 +4152,11 @@ static void FS_AddCustomPak( const char *basepath, const char *game, const char 
 			name = pak->buildBuffer[i].name;
 			// case insensitive
 			if( Com_FilterPath( filter, name, qfalse ) )
+			{
+				FS_FreePak( pak );
+				Com_DPrintf( "Autoload: Blocked custom pak with vm, filename=%s\n", zipfilename );
 				return;
+			}
 		}
 	}
 	Com_DPrintf( "Autoload: Loaded custom pak filename=%s\n", zipfilename );
