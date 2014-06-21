@@ -2152,7 +2152,7 @@ DIRECTORY SCANNING FUNCTIONS
 =================================================================================
 */
 
-#define	MAX_FOUND_FILES	0x1000
+#define	MAX_FOUND_FILES	0x4000
 
 static int FS_ReturnPath( const char *zname, char *zpath, int *depth ) {
 	int len, at, newdep;
@@ -4124,6 +4124,10 @@ static void FS_AddCustomPak( const char *basepath, const char *game, const char 
 	pack_t			*pak;
 	char			curpath[ MAX_OSPATH + 1 ];
 	char			curfilename[ MAX_OSPATH + 1 ];
+	char			*filter = "vm/*";
+
+	if( zipfilename == NULL )
+		return;
 
 	Q_strncpyz( curpath, FS_BuildOSPath( basepath, game, "" ), sizeof( curpath ) );
 	curpath[ strlen( curpath ) - 1 ] = '\0';	// strip the trailing slash
@@ -4138,7 +4142,19 @@ static void FS_AddCustomPak( const char *basepath, const char *game, const char 
 		// This isn't a .pk3!
 		return;
 	}
-
+	if( filter )
+	{
+		int		i;
+		char	*name;
+		for( i = 0; i < pak->numfiles; i++ ) 
+		{
+			// check for directory match
+			name = pak->buildBuffer[i].name;
+			// case insensitive
+			if( Com_FilterPath( filter, name, qfalse ) )
+				return;
+		}
+	}
 	Com_DPrintf( "Autoload: Loaded custom pak filename=%s\n", zipfilename );
 
 	Q_strncpyz( pak->pakGamename, game, sizeof( pak->pakGamename ) );
@@ -4226,6 +4242,25 @@ static int FS_LoadMapDependencyFile( const char *basepath, const char *game, con
 	return len;
 }
 
+static const char *FS_ReturnFilename( const char *full_path ) 
+{
+	const char *p;
+	const char *filename;
+
+	if( full_path == NULL )
+		return NULL;
+
+	filename = p = full_path;
+	while( *p )
+	{
+		if( p[0] == '\\' || p[0] == '/' )
+		{
+			filename = p + 1;
+		}
+		p++;
+	}
+	return filename;
+}
 
 static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, const char *map )
 {
@@ -4286,7 +4321,7 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 					*( buffer + tokens[x].end ) = '\0';
 					pk3_filename = buffer + tokens[x].start;
 
-					FS_AddCustomPak( basepath, game, pk3_filename );
+					FS_AddCustomPak( basepath, game, FS_ReturnFilename( pk3_filename ) );
 				}
 			} else
 			if( strcmp( key, DEPENDENCIES_KEY ) == 0 )
@@ -4325,7 +4360,7 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 									*( buffer + tokens[x].end ) = '\0';
 									pk3_filename = buffer + tokens[x].start;
 
-									FS_AddCustomPak( basepath, game, pk3_filename );
+									FS_AddCustomPak( basepath, game, FS_ReturnFilename( pk3_filename ) );
 								}
 							}
 						}
