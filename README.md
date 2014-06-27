@@ -3,16 +3,22 @@ ioq3df
 
 ioq3df is an engine for the Quake III Arena modification Defrag. It is a fork of ioquake3 to support Defrag specific features.
 
+Auto download and auto load of single pk3 files for each map.
+You can move all your map pk3 files to the autoload/maps/ folder.
+The auto download will download map dependency files to autoload/mapdeps/*.json and pk3 files to autoload/maps/*.
+cl_mapAutoDownload 		[0/1]
+cl_mapAutoDownload_source
+fs_autoload 			[0/1]
 
+
+Chat console:
 To open the chat console use ctrl+tab or bind a key to one of the new commands:
-
 togglechatconsole
 chatclear
 chatdump
 
 
 iodfe features by runaos:
-
 snap hud:
 
 iodfe_hud_snap_draw 1	- snapping hud, shows zones of possible acceleration (for 8 ms frametime)
@@ -24,7 +30,7 @@ iodfe_hud_snap_rgba2	- hud 2 color
 iodfe_hud_snap_y	- y position
 iodfe_hud_snap_h	- height
 
-iodfe_hud_pitch		- angle marks, setting it to "-15 70" for example will put two marks at -15 and 70 degrees of pitch 
+iodfe_hud_pitch		- angle marks, setting it to "-15 70" for example will put two marks at -15 and 70 degrees of pitch
 iodfe_hud_pitch_rgba	- color
 iodfe_hud_pitch_thickness
 iodfe_hud_pitch_width
