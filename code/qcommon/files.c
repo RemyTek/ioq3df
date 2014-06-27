@@ -3897,6 +3897,8 @@ void FS_InitFilesystem( void ) {
 	if(!FS_FilenameCompare(Cvar_VariableString("fs_game"), com_basegame->string))
 		Cvar_Set("fs_game", "");
 
+	*fs_autoloadmap = '\0';
+
 	// try to start up normally
 	FS_Startup(com_basegame->string);
 
@@ -4116,9 +4118,12 @@ const char *FS_GetCurrentGameDir(void)
 	 && strlen(s) == (t).end - (t).start)
 
 static qboolean mapdependency_file_found;
-static cvar_t	*fs_autoload;
+cvar_t	*fs_autoload;
+char fs_autoloadmap[BIG_INFO_VALUE];
+qboolean fs_autoloadhasmapdep;
+static char fs_autoloadMissingPaks[MAX_INFO_STRING];
 
-static void FS_AddCustomPak( const char *basepath, const char *game, const char *zipfilename ) 
+static int FS_AddCustomPak( const char *basepath, const char *game, const char *zipfilename ) 
 {
 	searchpath_t	*search;
 	pack_t			*pak;
@@ -4127,20 +4132,22 @@ static void FS_AddCustomPak( const char *basepath, const char *game, const char 
 	char			*filter = "vm/*";
 
 	if( zipfilename == NULL )
-		return;
+		return -1;
+	if( zipfilename[0] == '\0' )
+		return -2;
 
 	Q_strncpyz( curpath, FS_BuildOSPath( basepath, game, "" ), sizeof( curpath ) );
 	curpath[ strlen( curpath ) - 1 ] = '\0';	// strip the trailing slash
 
 	Q_strncpyz( curfilename, FS_BuildOSPath( curpath, "autoload/maps", zipfilename ), sizeof( curpath ) );
 
-	Com_DPrintf( "Autoload: Trying to load custom pak filename=%s\n", zipfilename );
+	Com_DPrintf( "Autoload: Trying to load custom pak game=%s, filename=%s\n", game, zipfilename );
 
 	pak = FS_LoadZipFile( curfilename, zipfilename );
 
 	if( pak == NULL ) {
 		// This isn't a .pk3!
-		return;
+		return -3;
 	}
 	if( filter )
 	{
@@ -4155,7 +4162,7 @@ static void FS_AddCustomPak( const char *basepath, const char *game, const char 
 			{
 				FS_FreePak( pak );
 				Com_DPrintf( "Autoload: Blocked custom pak with vm, filename=%s\n", zipfilename );
-				return;
+				return 0;
 			}
 		}
 	}
@@ -4175,6 +4182,7 @@ static void FS_AddCustomPak( const char *basepath, const char *game, const char 
 	search->next = fs_searchpaths;
 	fs_searchpaths = search;
 
+	return 1;
 }
 
 static int FS_LoadMapDependencyFile( const char *basepath, const char *game, const char *map, char *buf )
@@ -4213,7 +4221,7 @@ static int FS_LoadMapDependencyFile( const char *basepath, const char *game, con
 
 	Com_sprintf( debfile, sizeof( debfile ), "autoload/mapdeps/%s.json", map );
 
-	Com_DPrintf( "Autoload: Trying to open dependency file=%s\n", debfile );
+	Com_DPrintf( "Autoload: Trying to open dependency file=%s, game=%s\n", debfile, game );
 
 	len = FS_FOpenFileReadDir( debfile, &search, &file, qfalse, qtrue );
 
@@ -4246,7 +4254,7 @@ static int FS_LoadMapDependencyFile( const char *basepath, const char *game, con
 	return len;
 }
 
-static const char *FS_ReturnFilename( const char *full_path ) 
+const char *FS_ReturnFilename( const char *full_path ) 
 {
 	const char *p;
 	const char *filename;
@@ -4278,6 +4286,7 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 	const char	*key;
 	static char PK3_FILENAME_KEY[] = "pk3 filename";
 	static char DEPENDENCIES_KEY[] = "dependencies";
+	int			result;
 
 	jsmn_init( &p );
 
@@ -4288,6 +4297,10 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 	{
 		return qfalse;
 	}
+	fs_autoloadhasmapdep = qtrue;
+
+	*fs_autoloadMissingPaks = '\0';
+
 	for( x = 1; x < r; x++) 
 	{
 		key = NULL;
@@ -4325,7 +4338,14 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 					*( buffer + tokens[x].end ) = '\0';
 					pk3_filename = buffer + tokens[x].start;
 
-					FS_AddCustomPak( basepath, game, FS_ReturnFilename( pk3_filename ) );
+					result = FS_AddCustomPak( basepath, game, FS_ReturnFilename( pk3_filename ) );
+					if( result == -3 )
+					{
+						Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), "@" );
+						Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), FS_ReturnFilename( pk3_filename ) );
+						Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), "@" );
+						Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), FS_ReturnFilename( pk3_filename ) );
+					}
 				}
 			} else
 			if( strcmp( key, DEPENDENCIES_KEY ) == 0 )
@@ -4364,7 +4384,14 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 									*( buffer + tokens[x].end ) = '\0';
 									pk3_filename = buffer + tokens[x].start;
 
-									FS_AddCustomPak( basepath, game, FS_ReturnFilename( pk3_filename ) );
+									result = FS_AddCustomPak( basepath, game, FS_ReturnFilename( pk3_filename ) );
+									if( result == -3 )
+									{
+										Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), "@" );
+										Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), FS_ReturnFilename( pk3_filename ) );
+										Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), "@" );
+										Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), FS_ReturnFilename( pk3_filename ) );
+									}
 								}
 							}
 						}
@@ -4396,7 +4423,7 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 
 static void FS_AutoLoadMap( const char *basepath, const char *game, const char *map )
 {
-	if( fs_autoload->integer & 3 )
+	if( fs_autoload->integer & 0x4 )
 	{
 		return;
 	}
@@ -4404,6 +4431,9 @@ static void FS_AutoLoadMap( const char *basepath, const char *game, const char *
 	if( FS_LoadMapDependencies( basepath, game, map ) )
 	{
 		mapdependency_file_found = qtrue;
+	} else
+	{
+
 	}
 
 }
@@ -4463,17 +4493,20 @@ void FS_AutoLoad( const char *gameName, cvar_t *fs_basepath, cvar_t *fs_homepath
 	const char *map;
 	char pk3_filename[ MAX_OSPATH + 1 ];
 
+	fs_autoloadhasmapdep = qfalse;
+	*fs_autoloadMissingPaks = '\0';
+
 	fs_autoload = Cvar_Get( "fs_autoload", "1", CVAR_ARCHIVE );
 	if( !( fs_autoload->integer > 0 ) )
 	{
 		return;
 	}
 
-	map = Cvar_VariableString( "autoloadmap" );
-	if( !( map && *map ) )
+	if( *fs_autoloadmap == '\0' )
 	{
 		return;
 	}
+	map = fs_autoloadmap;
 
 	mapdependency_file_found = qfalse;
 
@@ -4523,7 +4556,7 @@ void FS_AutoLoad( const char *gameName, cvar_t *fs_basepath, cvar_t *fs_homepath
 		}
 	}
 
-	if( fs_autoload->integer & 2 )
+	if( fs_autoload->integer & 0x2 )
 	{
 		return;
 	}
@@ -4543,9 +4576,14 @@ void FS_AutoLoad( const char *gameName, cvar_t *fs_basepath, cvar_t *fs_homepath
 
 void FS_AutoLoadMapCmd( const char *map )
 {
-	Cvar_Set( "autoloadmap", map );
+	char oldmap[BIG_INFO_VALUE];
+
+	Q_strncpyz( oldmap, fs_autoloadmap, sizeof( oldmap ) );
+	Q_strncpyz( fs_autoloadmap, map, sizeof( fs_autoloadmap ) );
+
 	FS_AutoLoad( com_basegame->string, fs_basepath, fs_homepath, fs_gamedirvar );
-	Cvar_Set( "autoloadmap", "" );
+
+	Q_strncpyz( fs_autoloadmap, oldmap, sizeof( fs_autoloadmap ) );
 }
 
 void FS_MapFilenameCompletion( const char *dir, const char *ext,
@@ -4573,23 +4611,8 @@ void FS_MapFilenameCompletion( const char *dir, const char *ext,
 
 	} else
 	{
-		int x;
-		char			**listCopy;
-
-		listCopy = Z_Malloc( ( nfiles + nfiles2 + 1 ) * sizeof( *listCopy ) );
-		x = 0;
-		for ( i = 0 ; i < nfiles ; i++ ) {
-			x = FS_AddFileToList( filenames[i], listCopy, x );
-		}
-		for ( i = 0 ; i < nfiles2 ; i++ ) {
-			x = FS_AddFileToList( filenames2[i], listCopy, x );
-		}
-		listCopy[x] = NULL;
-
-		FS_FreeFileList( filenames );
-		FS_FreeFileList( filenames2 );
-		filenames = listCopy;
-		nfiles = x;
+		filenames = Sys_ConcatenateFileLists( filenames, filenames2 );
+		nfiles = Sys_CountFileList( filenames );
 	}
 	FS_SortFileList( filenames, nfiles );
 
@@ -4604,4 +4627,20 @@ void FS_MapFilenameCompletion( const char *dir, const char *ext,
 		callback( filename );
 	}
 	FS_FreeFileList( filenames );
+}
+
+qboolean FS_autoloadComparePaks( char *neededpaks, int len, qboolean dlstring )
+{
+	if( *fs_autoloadMissingPaks == '\0' )
+		return qfalse;
+
+	if( dlstring )
+	{
+		Q_strncpyz( neededpaks, fs_autoloadMissingPaks, len );
+	} else
+	{
+		Com_sprintf( neededpaks, sizeof( neededpaks ), "%s\n", fs_autoloadMissingPaks );
+
+	}
+	return qtrue;
 }

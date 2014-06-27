@@ -190,6 +190,7 @@ void CL_cURL_Cleanup(void)
 		qcurl_easy_cleanup(clc.downloadCURL);
 		clc.downloadCURL = NULL;
 	}
+	clc.downloadMotd[0] = '\0';
 }
 
 static int CL_cURL_CallbackProgress( void *dummy, double dltotal, double dlnow,
@@ -207,6 +208,54 @@ static size_t CL_cURL_CallbackWrite(void *buffer, size_t size, size_t nmemb,
 {
 	FS_Write( buffer, size*nmemb, ((fileHandle_t*)stream)[0] );
 	return size*nmemb;
+}
+
+static size_t CL_cURL_CallbackHeader( void *ptr, size_t size, size_t nmemb, void *stream ) 
+{
+	char buf[1024];
+	char *c;
+
+
+	if( size * nmemb == 0 ) 
+	{
+		return 0;
+	}
+
+	// make a copy and remove the trailing crlf chars.
+	if( size * nmemb >= sizeof( buf ) ) 
+	{
+		return size * nmemb;
+	}
+	Q_strncpyz( buf, (const char *)ptr, size * nmemb + 1 );
+
+	c = buf + strlen( buf ) - 1;
+	while( c > buf && ( *c == '\r' || *c == '\n' ) ) 
+	{
+		*(c--) = '\0';
+	}
+
+	// catch x-dfengine-motd headers
+	if( !Q_stricmpn( buf, "x-dfengine-motd: ", 17 ) ) 
+	{
+		if( strlen( buf ) >= 17 + sizeof( clc.downloadMotd ) ) 
+		{
+			Com_DPrintf( "Warning: download motd string too large.\n" );
+		} else 
+		{
+			Q_strncpyz( clc.downloadMotd, buf + 17, sizeof( clc.downloadMotd ) );
+		}
+	} else
+	if( !Q_stricmpn( buf, "x-q3a-motd: ", 12 ) ) 
+	{
+		if( strlen( buf ) >= 12 + sizeof( clc.downloadMotd ) ) 
+		{
+			Com_DPrintf( "Warning: download motd string too large.\n" );
+		} else 
+		{
+			Q_strncpyz( clc.downloadMotd, buf + 12, sizeof( clc.downloadMotd ) );
+		}
+	}
+	return size * nmemb;
 }
 
 void CL_cURL_BeginDownload( const char *localName, const char *remoteURL )
@@ -249,7 +298,7 @@ void CL_cURL_BeginDownload( const char *localName, const char *remoteURL )
 		qcurl_easy_setopt(clc.downloadCURL, CURLOPT_VERBOSE, 1);
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_URL, clc.downloadURL);
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_TRANSFERTEXT, 0);
-	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_REFERER, va("ioQ3://%s",
+	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_REFERER, va("ioQ3DF://%s",
 		NET_AdrToString(clc.serverAddress)));
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_USERAGENT, va("%s %s",
 		Q3_VERSION, qcurl_version()));
@@ -263,6 +312,8 @@ void CL_cURL_BeginDownload( const char *localName, const char *remoteURL )
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_FAILONERROR, 1);
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_FOLLOWLOCATION, 1);
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_MAXREDIRS, 5);
+	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_HEADERFUNCTION, 
+		CL_cURL_CallbackHeader );
 	clc.downloadCURLM = qcurl_multi_init();	
 	if(!clc.downloadCURLM) {
 		qcurl_easy_cleanup(clc.downloadCURL);

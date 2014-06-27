@@ -288,6 +288,9 @@ typedef struct {
 
 	// big stuff at end of structure so most offsets are 15 bits or less
 	netchan_t	netchan;
+
+	char downloadMotd[128]; //128 by dfengine
+
 } clientConnection_t;
 
 extern	clientConnection_t clc;
