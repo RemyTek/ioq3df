@@ -8,7 +8,7 @@ You can move all your map pk3 files to the autoload/maps/ folder.
 The auto download will download map dependency files to autoload/mapdeps/\*.json and pk3 files to autoload/maps/\*.pk3.  
 cl_mapAutoDownload 		[0/1]  
 cl_mapAutoDownload\_source  
-fs_autoload 			[0/1]
+fs_autoload 			[0/1]  
 
 
 Chat console:  
@@ -17,6 +17,9 @@ togglechatconsole
 chatclear  
 chatdump
 
+
+r_defaultImage to replace the default (missing texture) images  
+i.e. \seta r_defaultImage "textures\liquids\bubbles.tga"
 
 iodfe features by runaos:  
 snap hud:
