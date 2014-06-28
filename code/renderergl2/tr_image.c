@@ -2768,6 +2768,16 @@ static void R_CreateDefaultImage( void ) {
 	int		x;
 	byte	data[DEFAULT_SIZE][DEFAULT_SIZE][4];
 
+	if( r_defaultImage && r_defaultImage->string[0] != '\0' )
+	{
+		imgFlags_t flags;
+		flags = IMGFLAG_MIPMAP | IMGFLAG_PICMIP;
+		tr.defaultImage = R_FindImageFile( r_defaultImage->string, IMGTYPE_COLORALPHA, flags );
+		if( tr.defaultImage != NULL )
+		{
+			return;
+		}
+	}
 	// the default image will be a box, to allow you to see the mapping coordinates
 	Com_Memset( data, 32, sizeof( data ) );
 	for ( x = 0 ; x < DEFAULT_SIZE ; x++ ) {
