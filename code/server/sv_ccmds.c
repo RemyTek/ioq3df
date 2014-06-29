@@ -22,6 +22,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "server.h"
 
+char				sv_remapArgs[MAX_OSPATH];
+
 /*
 ===============================================================================
 
@@ -207,6 +209,9 @@ static void SV_Map_f( void ) {
 	// and thus nuke the arguments of the map command
 	Q_strncpyz(mapname, map, sizeof(mapname));
 
+	// save arguments for remap
+	Q_strncpyz( sv_remapArgs, Cmd_Args(), sizeof( sv_remapArgs ) );
+
 	// start up the map
 	SV_SpawnServer( mapname, killBots );
 
@@ -219,6 +224,20 @@ static void SV_Map_f( void ) {
 	} else {
 		Cvar_Set( "sv_cheats", "0" );
 	}
+}
+
+/*
+==================
+SV_ReMap_f
+
+Restart the server on a map
+==================
+*/
+static void SV_ReMap_f( void ) 
+{
+	if( !strlen( sv_remapArgs ) )
+		return;
+	Cbuf_AddText( va( "map %s\n", sv_remapArgs ) );
 }
 
 /*
@@ -1444,6 +1463,7 @@ void SV_AddOperatorCommands( void ) {
 	Cmd_AddCommand ("sectorlist", SV_SectorList_f);
 	Cmd_AddCommand ("map", SV_Map_f);
 	Cmd_SetCommandCompletionFunc( "map", SV_CompleteMapName );
+	Cmd_AddCommand ("remap", SV_ReMap_f);
 #ifndef PRE_RELEASE_DEMO
 	Cmd_AddCommand ("devmap", SV_Map_f);
 	Cmd_SetCommandCompletionFunc( "devmap", SV_CompleteMapName );
