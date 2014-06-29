@@ -4117,7 +4117,6 @@ const char *FS_GetCurrentGameDir(void)
 	(strncmp((js)+(t).start, (s), (t).end - (t).start) == 0 \
 	 && strlen(s) == (t).end - (t).start)
 
-static qboolean mapdependency_file_found;
 cvar_t	*fs_autoload;
 char fs_autoloadmap[BIG_INFO_VALUE];
 qboolean fs_autoloadhasmapdep;
@@ -4274,6 +4273,89 @@ const char *FS_ReturnFilename( const char *full_path )
 	return filename;
 }
 
+static int FS_AutoLoadPk3( const char *gameName, cvar_t *fs_basepath, cvar_t *fs_homepath, cvar_t *fs_gamedirvar, const char *pk3_filename )
+{
+	int result;
+
+	// add search path elements in reverse priority order
+	if( fs_basepath->string[0] ) 
+	{
+		result = FS_AddCustomPak( fs_basepath->string, gameName, pk3_filename );
+		if( result > 0 )
+		{
+			return result;
+		}
+	}
+	// fs_homepath is somewhat particular to *nix systems, only add if relevant
+
+#ifdef MACOS_X
+	fs_apppath = Cvar_Get( "fs_apppath", Sys_DefaultAppPath(), CVAR_INIT|CVAR_PROTECTED );
+	// Make MacOSX also include the base path included with the .app bundle
+	if (fs_apppath->string[0])
+	{
+		result = FS_AddCustomPak( fs_apppath->string, gameName, pk3_filename );
+		if( result > 0 )
+		{
+			return result;
+		}
+	}
+#endif
+	
+	// NOTE: same filtering below for mods and basegame
+	if( fs_homepath->string[0] && Q_stricmp( fs_homepath->string, fs_basepath->string ) ) 
+	{
+		result = FS_AddCustomPak( fs_homepath->string, gameName, pk3_filename );
+		if( result > 0 )
+		{
+			return result;
+		}
+	}
+
+	// check for additional base game so mods can be based upon other mods
+	if( fs_basegame->string[0] && Q_stricmp( fs_basegame->string, gameName ) ) 
+	{
+		if( fs_basepath->string[0] )
+		{
+			result = FS_AddCustomPak( fs_basepath->string, fs_basegame->string, pk3_filename );
+			if( result > 0 )
+			{
+				return result;
+			}
+		}
+		if( fs_homepath->string[0] && Q_stricmp( fs_homepath->string, fs_basepath->string ) ) 
+		{
+			result = FS_AddCustomPak( fs_homepath->string, fs_basegame->string, pk3_filename );
+			if( result > 0 )
+			{
+				return result;
+			}
+		}
+	}
+
+	// check for additional game folder for mods
+	if ( fs_gamedirvar->string[0] && Q_stricmp( fs_gamedirvar->string, gameName ) ) 
+	{
+		if (fs_basepath->string[0]) 
+		{
+			result = FS_AddCustomPak( fs_basepath->string, fs_gamedirvar->string, pk3_filename );
+			if( result > 0 )
+			{
+				return result;
+			}
+		}
+		if( fs_homepath->string[0] && Q_stricmp( fs_homepath->string, fs_basepath->string ) ) 
+		{
+			result = FS_AddCustomPak( fs_homepath->string, fs_gamedirvar->string, pk3_filename );
+			if( result > 0 )
+			{
+				return result;
+			}
+		}
+	}
+	result = 0;
+	return result;
+}
+
 static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, const char *map )
 {
 	int			count;
@@ -4297,7 +4379,6 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 	{
 		return qfalse;
 	}
-	fs_autoloadhasmapdep = qtrue;
 
 	*fs_autoloadMissingPaks = '\0';
 
@@ -4338,8 +4419,8 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 					*( buffer + tokens[x].end ) = '\0';
 					pk3_filename = buffer + tokens[x].start;
 
-					result = FS_AddCustomPak( basepath, game, FS_ReturnFilename( pk3_filename ) );
-					if( result == -3 )
+					result = FS_AutoLoadPk3( com_basegame->string, fs_basepath, fs_homepath, fs_gamedirvar, FS_ReturnFilename( pk3_filename ) );
+					if( !( result > 0 ) )
 					{
 						Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), "@" );
 						Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), FS_ReturnFilename( pk3_filename ) );
@@ -4384,8 +4465,8 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 									*( buffer + tokens[x].end ) = '\0';
 									pk3_filename = buffer + tokens[x].start;
 
-									result = FS_AddCustomPak( basepath, game, FS_ReturnFilename( pk3_filename ) );
-									if( result == -3 )
+									result = FS_AutoLoadPk3( com_basegame->string, fs_basepath, fs_homepath, fs_gamedirvar, FS_ReturnFilename( pk3_filename ) );
+									if( !( result > 0 ) )
 									{
 										Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), "@" );
 										Q_strcat( fs_autoloadMissingPaks, sizeof( fs_autoloadMissingPaks ), FS_ReturnFilename( pk3_filename ) );
@@ -4420,77 +4501,93 @@ static qboolean FS_LoadMapDependencies( const char *basepath, const char *game, 
 	return qtrue;
 }
 
-
-static void FS_AutoLoadMap( const char *basepath, const char *game, const char *map )
+static qboolean FS_AutoLoadMap( const char *map )
 {
-	if( fs_autoload->integer & 0x4 )
-	{
-		return;
-	}
+	const char * gameName;
+	qboolean result;
 
-	if( FS_LoadMapDependencies( basepath, game, map ) )
-	{
-		mapdependency_file_found = qtrue;
-	} else
-	{
-
-	}
-
-}
-static void FS_AutoLoadPk3( const char *gameName, cvar_t *fs_basepath, cvar_t *fs_homepath, cvar_t *fs_gamedirvar, const char *pk3_filename )
-{
+	gameName = com_basegame->string;
 
 	// add search path elements in reverse priority order
 	if( fs_basepath->string[0] ) 
 	{
-		FS_AddCustomPak( fs_basepath->string, gameName, pk3_filename );
+		result = FS_LoadMapDependencies( fs_basepath->string, gameName, map );
+		if( result )
+		{
+			return qtrue;
+		}
 	}
 	// fs_homepath is somewhat particular to *nix systems, only add if relevant
 
 #ifdef MACOS_X
 	fs_apppath = Cvar_Get( "fs_apppath", Sys_DefaultAppPath(), CVAR_INIT|CVAR_PROTECTED );
 	// Make MacOSX also include the base path included with the .app bundle
-	if (fs_apppath->string[0])
-		FS_AddCustomPak( fs_apppath->string, gameName, pk3_filename );
+	if( fs_apppath->string[0] )
+	{
+		result = FS_LoadMapDependencies( fs_apppath->string, gameName, map );
+		if( result )
+		{
+			return qtrue;
+		}
+	}
 #endif
 	
 	// NOTE: same filtering below for mods and basegame
 	if( fs_homepath->string[0] && Q_stricmp( fs_homepath->string, fs_basepath->string ) ) 
 	{
-		FS_AddCustomPak( fs_homepath->string, gameName, pk3_filename );
+		result = FS_LoadMapDependencies( fs_homepath->string, gameName, map );
+		if( result )
+		{
+			return qtrue;
+		}
 	}
 
 	// check for additional base game so mods can be based upon other mods
 	if( fs_basegame->string[0] && Q_stricmp( fs_basegame->string, gameName ) ) 
 	{
-		if( fs_basepath->string[0] )
+		if (fs_basepath->string[0]) 
 		{
-			FS_AddCustomPak( fs_basepath->string, fs_basegame->string, pk3_filename );
+			result = FS_LoadMapDependencies( fs_basepath->string, fs_basegame->string, map );
+			if( result )
+			{
+				return qtrue;
+			}
 		}
 		if( fs_homepath->string[0] && Q_stricmp( fs_homepath->string, fs_basepath->string ) ) 
 		{
-			FS_AddCustomPak( fs_homepath->string, fs_basegame->string, pk3_filename );
+			result = FS_LoadMapDependencies( fs_homepath->string, fs_basegame->string, map );
+			if( result )
+			{
+				return qtrue;
+			}
 		}
 	}
 
 	// check for additional game folder for mods
-	if ( fs_gamedirvar->string[0] && Q_stricmp( fs_gamedirvar->string, gameName ) ) 
+	if( fs_gamedirvar->string[0] && Q_stricmp( fs_gamedirvar->string, gameName ) ) 
 	{
-		if (fs_basepath->string[0]) 
+		if( fs_basepath->string[0] ) 
 		{
-			FS_AddCustomPak( fs_basepath->string, fs_gamedirvar->string, pk3_filename );
+			result = FS_LoadMapDependencies( fs_basepath->string, fs_gamedirvar->string, map );
+			if( result )
+			{
+				return qtrue;
+			}
 		}
 		if( fs_homepath->string[0] && Q_stricmp( fs_homepath->string, fs_basepath->string ) ) 
 		{
-			FS_AddCustomPak( fs_homepath->string, fs_gamedirvar->string, pk3_filename );
+			result = FS_LoadMapDependencies( fs_homepath->string, fs_gamedirvar->string, map );
+			if( result )
+			{
+				return qtrue;
+			}
 		}
 	}
-
+	return qfalse;
 }
 
 void FS_AutoLoad( const char *gameName, cvar_t *fs_basepath, cvar_t *fs_homepath, cvar_t *fs_gamedirvar )
 {
-	const char *map;
 	char pk3_filename[ MAX_OSPATH + 1 ];
 
 	fs_autoloadhasmapdep = qfalse;
@@ -4506,54 +4603,10 @@ void FS_AutoLoad( const char *gameName, cvar_t *fs_basepath, cvar_t *fs_homepath
 	{
 		return;
 	}
-	map = fs_autoloadmap;
 
-	mapdependency_file_found = qfalse;
-
-	// add search path elements in reverse priority order
-	if( fs_basepath->string[0] ) 
+	if( !( fs_autoload->integer & 0x4 ) )
 	{
-		FS_AutoLoadMap( fs_basepath->string, gameName, map );
-	}
-	// fs_homepath is somewhat particular to *nix systems, only add if relevant
-
-#ifdef MACOS_X
-	fs_apppath = Cvar_Get( "fs_apppath", Sys_DefaultAppPath(), CVAR_INIT|CVAR_PROTECTED );
-	// Make MacOSX also include the base path included with the .app bundle
-	if( fs_apppath->string[0] )
-		FS_AutoLoadMap( fs_apppath->string, gameName, map );
-#endif
-	
-	// NOTE: same filtering below for mods and basegame
-	if( fs_homepath->string[0] && Q_stricmp( fs_homepath->string, fs_basepath->string ) ) 
-	{
-		FS_AutoLoadMap( fs_homepath->string, gameName, map );
-	}
-
-	// check for additional base game so mods can be based upon other mods
-	if( fs_basegame->string[0] && Q_stricmp( fs_basegame->string, gameName ) ) 
-	{
-		if (fs_basepath->string[0]) 
-		{
-			FS_AutoLoadMap( fs_basepath->string, fs_basegame->string, map );
-		}
-		if( fs_homepath->string[0] && Q_stricmp( fs_homepath->string, fs_basepath->string ) ) 
-		{
-			FS_AutoLoadMap( fs_homepath->string, fs_basegame->string, map );
-		}
-	}
-
-	// check for additional game folder for mods
-	if( fs_gamedirvar->string[0] && Q_stricmp( fs_gamedirvar->string, gameName ) ) 
-	{
-		if( fs_basepath->string[0] ) 
-		{
-			FS_AutoLoadMap( fs_basepath->string, fs_gamedirvar->string, map );
-		}
-		if( fs_homepath->string[0] && Q_stricmp( fs_homepath->string, fs_basepath->string ) ) 
-		{
-			FS_AutoLoadMap( fs_homepath->string, fs_gamedirvar->string, map );
-		}
+		fs_autoloadhasmapdep = FS_AutoLoadMap( fs_autoloadmap );
 	}
 
 	if( fs_autoload->integer & 0x2 )
@@ -4561,12 +4614,12 @@ void FS_AutoLoad( const char *gameName, cvar_t *fs_basepath, cvar_t *fs_homepath
 		return;
 	}
 
-	if( mapdependency_file_found )
+	if( fs_autoloadhasmapdep )
 	{
 		return;
 	}
 
-	Com_sprintf( pk3_filename, sizeof( pk3_filename ), "%s.pk3", map );
+	Com_sprintf( pk3_filename, sizeof( pk3_filename ), "%s.pk3", fs_autoloadmap );
 
 	Com_DPrintf( "Autoload: No dependency file found. Trying bsp=pk3, filename=%s\n", pk3_filename );
 
