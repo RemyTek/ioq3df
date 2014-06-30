@@ -2360,8 +2360,10 @@ void CL_InitDownloads(void) {
 	{
 		int length;
 		int pure;
+		static char fs_autoloadmapblock[BIG_INFO_VALUE];
 
-		if( fs_autoload->integer > 0 )
+		if( fs_autoload->integer > 0 
+			&& strcmp( fs_autoloadmapblock, fs_autoloadmap ) != 0 )
 		{
 			//always want the map dependency file locally for auto loading
 			if( *fs_autoloadmap && !( fs_autoloadhasmapdep ) )
@@ -2378,6 +2380,9 @@ void CL_InitDownloads(void) {
 				Com_sprintf( debfile, sizeof( debfile ), "%s/autoload/mapdeps/%s.json", gamedir, fs_autoloadmap );
 				Com_sprintf( clc.downloadList, sizeof( clc.downloadList ), "@%s@%s", FS_ReturnFilename( debfile ), debfile ); //"@remote@local"
 				length = strlen( clc.downloadList );
+
+				//prevent any possible download loop for fs_autoload
+				Q_strncpyz( fs_autoloadmapblock, fs_autoloadmap, sizeof( fs_autoloadmapblock ) );
 			} else
 			{
 				length = 0;
@@ -2388,10 +2393,11 @@ void CL_InitDownloads(void) {
 		}
 		pure = Cvar_VariableIntegerValue( "sv_pure" );
 
+		//currently unpure defrag servers return wrong pak filenames
 		if( ( pure > 0 && FS_ComparePaks( clc.downloadList + length, sizeof( clc.downloadList ) - length, qtrue ) ) 
-			|| length > 0 
+			|| length > 0
 			|| ( ( com_sv_running->integer > 0 || pure == 0 )
-			&& FS_autoloadComparePaks( clc.downloadList, sizeof( clc.downloadList ), qtrue ) ) ) 
+				&& FS_autoloadComparePaks( clc.downloadList, sizeof( clc.downloadList ), qtrue ) ) )
 		{
 
 			Com_Printf( "Need paks: %s\n", clc.downloadList );
