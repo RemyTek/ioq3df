@@ -168,7 +168,10 @@ static void SV_Map_f( void ) {
 	// a typo at the server console won't end the game
 	Com_sprintf (expanded, sizeof(expanded), "maps/%s.bsp", map);
 	if ( FS_ReadFile (expanded, NULL) == -1 ) {
-		FS_AutoLoadMapCmd( map );
+		if( Q_stricmp( cmd, "devmap" ) != 0 ) 
+		{
+			FS_AutoLoadMapCmd( map );
+		}
 		if ( FS_ReadFile (expanded, NULL) == -1 ) {
 			Com_Printf ("Can't find map %s\n", expanded);
 			return;
@@ -209,9 +212,11 @@ static void SV_Map_f( void ) {
 	// and thus nuke the arguments of the map command
 	Q_strncpyz(mapname, map, sizeof(mapname));
 
-	// save arguments for remap
-	Q_strncpyz( sv_remapArgs, Cmd_Args(), sizeof( sv_remapArgs ) );
-
+	if( Q_stricmp( cmd, "devmap" ) != 0 ) 
+	{
+		// save arguments for remap
+		Q_strncpyz( sv_remapArgs, Cmd_Args(), sizeof( sv_remapArgs ) );
+	}
 	// start up the map
 	SV_SpawnServer( mapname, killBots );
 
