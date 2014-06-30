@@ -2074,6 +2074,11 @@ void CL_DownloadsComplete( void ) {
 				clc.downloadRestart = qfalse;
 			}
 			clc.cURLDisconnected = qfalse;
+			if( com_sv_running->integer > 0 )
+			{
+				Cbuf_AddText( "killserver\n" );
+				Cbuf_AddText( "remap\n" ); //SV_ReMap_f();
+			} else
 			CL_Reconnect_f();
 			return;
 		}
@@ -2385,7 +2390,8 @@ void CL_InitDownloads(void) {
 
 		if( ( pure > 0 && FS_ComparePaks( clc.downloadList + length, sizeof( clc.downloadList ) - length, qtrue ) ) 
 			|| length > 0 
-			|| ( pure == 0 && FS_autoloadComparePaks( clc.downloadList, sizeof( clc.downloadList ), qtrue ) ) ) 
+			|| ( ( com_sv_running->integer > 0 || pure == 0 )
+			&& FS_autoloadComparePaks( clc.downloadList, sizeof( clc.downloadList ), qtrue ) ) ) 
 		{
 
 			Com_Printf( "Need paks: %s\n", clc.downloadList );

@@ -237,6 +237,11 @@ static void SV_ReMap_f( void )
 {
 	if( !strlen( sv_remapArgs ) )
 		return;
+	if ( com_sv_running->integer ) {
+		// if running a local server, kill it
+		SV_Shutdown( "Server quit (remap)" );
+	}
+
 	Cbuf_AddText( va( "map %s\n", sv_remapArgs ) );
 }
 
