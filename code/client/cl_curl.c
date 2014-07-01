@@ -363,8 +363,7 @@ void CL_cURL_PerformDownload(void)
 
 		qcurl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE,
 			&code);
-		//map dependency file isn't necessary to run a map
-		if( Com_FilterPath( "*/autoload/mapdeps/*.json", clc.downloadName, qfalse ) )
+		if( !clc.downloadMandatory )
 		{
 			Com_Printf( S_COLOR_YELLOW "WARNING: " "Download Error: %s Code: %ld URL: %s",
 				qcurl_easy_strerror(msg->data.result),

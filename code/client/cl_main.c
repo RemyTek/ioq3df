@@ -2215,6 +2215,7 @@ void CL_NextDownload(void)
 
 	*clc.downloadTempName = *clc.downloadName = 0;
 	Cvar_Set("cl_downloadName", "");
+	clc.downloadMandatory = qtrue;
 
 	// We are looking to start a download here
 	if (*clc.downloadList) {
@@ -2271,6 +2272,8 @@ void CL_NextDownload(void)
 				if( Com_FilterPath( "*/autoload/mapdeps/*.json", localName, qfalse ) )
 				{
 					Q_strncpyz( autoloadfile, localName, sizeof( autoloadfile ) );
+					//map dependency file isn't mandatory to run a map
+					clc.downloadMandatory = qfalse;
 				} else
 				{
 					if( fs_autoload->integer > 0 )
