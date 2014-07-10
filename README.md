@@ -9,7 +9,9 @@ The auto download will download map dependency files to autoload/mapdeps/\*.json
 cl_mapAutoDownload 		[0/1]  
 cl_mapAutoDownload\_source  
 fs_autoload 			[0/1]  
-
+New commands:
+downloadMap <filename>
+downloadPk3 <filename>
 
 Chat console:  
 To open the chat console use ctrl+tab or bind a key to one of the new commands:  
