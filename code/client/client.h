@@ -48,6 +48,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 //iodfe snap hud
 #define SNAPHUD_MAXZONES		128
 
+typedef enum {
+	DT_CLIENT_CONNECT,
+	DT_DOWNLOADMAP_COMMAND,
+	DT_DOWNLOADPK3_COMMAND,
+	DT_MAP_COMMAND
+} downloadtype_t;
+
 typedef struct {
 	int			speed;
 	float		zones[SNAPHUD_MAXZONES];
@@ -214,7 +221,11 @@ typedef struct {
 	char		downloadTempName[MAX_OSPATH];
 	char		downloadName[MAX_OSPATH];
 	qboolean	downloadMandatory;
+	downloadtype_t downloadType;
 #ifdef USE_CURL
+	connstate_t downloadPreState;
+	char		downloadMap[MAX_QPATH];
+	char		downloadHTTPRepsonse[MAX_STRING_CHARS];
 	qboolean	cURLEnabled;
 	qboolean	cURLUsed;
 	qboolean	cURLDisconnected;

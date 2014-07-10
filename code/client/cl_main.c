@@ -108,8 +108,10 @@ cvar_t	*cl_activeAction;
 cvar_t	*cl_motdString;
 
 cvar_t	*cl_allowDownload;
+#ifdef USE_CURL
 cvar_t	*cl_mapAutoDownload;
 cvar_t	*cl_mapAutoDownload_source;
+#endif
 cvar_t	*cl_conXOffset;
 cvar_t	*cl_inGameVideo;
 
@@ -2069,15 +2071,21 @@ void CL_DownloadsComplete( void ) {
 		clc.cURLUsed = qfalse;
 		CL_cURL_Shutdown();
 		if( clc.cURLDisconnected ) {
+			if( clc.downloadType == DT_DOWNLOADPK3_COMMAND 
+				&& clc.downloadType == DT_DOWNLOADMAP_COMMAND )
+			{
+				clc.downloadRestart = qfalse;
+			} else
 			if(clc.downloadRestart) {
 				FS_Restart(clc.checksumFeed);
 				clc.downloadRestart = qfalse;
 			}
 			clc.cURLDisconnected = qfalse;
-			if( com_sv_running->integer > 0 )
+			if( clc.downloadType == DT_DOWNLOADPK3_COMMAND 
+				|| clc.downloadType == DT_DOWNLOADMAP_COMMAND )
 			{
-				Cbuf_AddText( "killserver\n" );
-				Cbuf_AddText( "remap\n" ); //SV_ReMap_f();
+				Com_Printf( "Downloaded map file(s).\n" );
+				clc.state = clc.downloadPreState;
 			} else
 			CL_Reconnect_f();
 			return;
@@ -2181,26 +2189,33 @@ void CL_NextDownload(void)
 		char *zippath = FS_BuildOSPath(Cvar_VariableString("fs_homepath"), clc.downloadName, "");
 		zippath[strlen(zippath)-1] = '\0';
 
-		if( cl_allowDownload->integer == 0 && cl_mapAutoDownload->integer > 0 )
+#ifdef USE_CURL
+		if( ( cl_mapAutoDownload->integer > 0 && clc.downloadType == DT_CLIENT_CONNECT ) 
+			|| clc.downloadType == DT_DOWNLOADMAP_COMMAND 
+			|| clc.downloadType == DT_DOWNLOADPK3_COMMAND 
+			|| clc.downloadType == DT_MAP_COMMAND )
 		{
 			int pure;
 			pure = Cvar_VariableIntegerValue( "sv_pure" );
 
 			if( Com_FilterPath( "*/autoload/mapdeps/*.json", clc.downloadName, qfalse ) )
 			{
-				if( pure == 0 )
+				int length;
+
+				if( ( pure == 0 && clc.downloadType == DT_CLIENT_CONNECT )
+					|| clc.downloadType == DT_DOWNLOADMAP_COMMAND 
+					|| clc.downloadType == DT_MAP_COMMAND )
 				{
-					int length;
-
-					*clc.downloadTempName = *clc.downloadName = 0;
-					FS_Restart( clc.checksumFeed );
-
 					length = strlen( clc.downloadList );
-					FS_autoloadComparePaks( clc.downloadList + length, sizeof( clc.downloadList ) - length, qtrue );
+					FS_CompareMapPaks( clc.downloadList + length, sizeof( clc.downloadList ) - length, clc.downloadMap, qfalse );
 				}
 			} else
 			{
-				if( pure == 1 )
+				if( pure == 1
+					 && !( clc.downloadType == DT_DOWNLOADMAP_COMMAND 
+						|| clc.downloadType == DT_DOWNLOADPK3_COMMAND 
+						|| clc.downloadType == DT_MAP_COMMAND ) )
+
 				{
 					if(!FS_CompareZipChecksum(zippath))
 						Com_Error(ERR_DROP, "Incorrect checksum for file: %s", clc.downloadName);
@@ -2209,6 +2224,7 @@ void CL_NextDownload(void)
 
 			}
 		} else
+#endif
 		if(!FS_CompareZipChecksum(zippath))
 			Com_Error(ERR_DROP, "Incorrect checksum for file: %s", clc.downloadName);
 	}
@@ -2240,7 +2256,10 @@ void CL_NextDownload(void)
 		else
 			s = localName + strlen(localName); // point at the nul byte
 #ifdef USE_CURL
-		if( cl_allowDownload->integer == 0 && cl_mapAutoDownload->integer > 0 ) 
+		if( ( cl_mapAutoDownload->integer > 0 && clc.downloadType == DT_CLIENT_CONNECT ) 
+			|| clc.downloadType == DT_DOWNLOADMAP_COMMAND 
+			|| clc.downloadType == DT_DOWNLOADPK3_COMMAND 
+			|| clc.downloadType == DT_MAP_COMMAND )
 		{
 			if( !*cl_mapAutoDownload_source->string ) 
 			{
@@ -2271,21 +2290,21 @@ void CL_NextDownload(void)
 				}
 				if( Com_FilterPath( "*/autoload/mapdeps/*.json", localName, qfalse ) )
 				{
+					int pure;
+
 					Q_strncpyz( autoloadfile, localName, sizeof( autoloadfile ) );
-					//map dependency file isn't mandatory to run a map
-					clc.downloadMandatory = qfalse;
+
+					pure = Cvar_VariableIntegerValue( "sv_pure" );
+					if( pure > 0 && clc.downloadType == DT_CLIENT_CONNECT )
+					{
+						//map dependency file isn't mandatory to run a map
+						clc.downloadMandatory = qfalse;
+					}
 				} else
 				{
 					if( fs_autoload->integer > 0 )
 					{
-						const char * gamedir;
-
-						gamedir = Cvar_VariableString( "fs_game" );
-						if( !gamedir || *gamedir == '\0' )
-						{
-							gamedir = BASEGAME;
-						}
-						Com_sprintf( autoloadfile, sizeof( autoloadfile ), "%s/autoload/maps/%s", gamedir, FS_ReturnFilename( localName ) );
+						Com_sprintf( autoloadfile, sizeof( autoloadfile ), "%s/autoload/maps/%s", FS_GetCurrentGameDir(), FS_ReturnFilename( localName ) );
 					} else
 					{
 						Q_strncpyz( autoloadfile, localName, sizeof( autoloadfile ) );
@@ -2359,33 +2378,18 @@ and determine if we need to download them
 void CL_InitDownloads(void) {
   char missingfiles[1024];
 
-	if( cl_allowDownload->integer == 0 && cl_mapAutoDownload->integer > 0 )
+#ifdef USE_CURL
+	if( cl_mapAutoDownload->integer > 0 )
 	{
 		int length;
 		int pure;
-		static char fs_autoloadmapblock[BIG_INFO_VALUE];
 
-		if( fs_autoload->integer > 0 
-			&& strcmp( fs_autoloadmapblock, fs_autoloadmap ) != 0 )
+		if( fs_autoload->integer > 0 )
 		{
 			//always want the map dependency file locally for auto loading
-			if( *fs_autoloadmap && !( fs_autoloadhasmapdep ) )
+			if( FS_CompareCurrentMapDep( clc.downloadList, sizeof( clc.downloadList ) ) )
 			{
-				char debfile[MAX_OSPATH + 1];
-
-				const char * gamedir;
-
-				gamedir = Cvar_VariableString( "fs_game" );
-				if( !gamedir || *gamedir == '\0' )
-				{
-					gamedir = BASEGAME;
-				}
-				Com_sprintf( debfile, sizeof( debfile ), "%s/autoload/mapdeps/%s.json", gamedir, fs_autoloadmap );
-				Com_sprintf( clc.downloadList, sizeof( clc.downloadList ), "@%s@%s", FS_ReturnFilename( debfile ), debfile ); //"@remote@local"
 				length = strlen( clc.downloadList );
-
-				//prevent any possible download loop for fs_autoload
-				Q_strncpyz( fs_autoloadmapblock, fs_autoloadmap, sizeof( fs_autoloadmapblock ) );
 			} else
 			{
 				length = 0;
@@ -2397,16 +2401,20 @@ void CL_InitDownloads(void) {
 		pure = Cvar_VariableIntegerValue( "sv_pure" );
 
 		//currently unpure defrag servers return wrong pak filenames
-		if( ( pure > 0 && FS_ComparePaks( clc.downloadList + length, sizeof( clc.downloadList ) - length, qtrue ) ) 
-			|| length > 0
-			|| ( ( com_sv_running->integer > 0 || pure == 0 )
-				&& FS_autoloadComparePaks( clc.downloadList, sizeof( clc.downloadList ), qtrue ) ) )
+		if( com_sv_running && com_sv_running->integer <= 0 &&
+			( ( pure > 0 && FS_ComparePaks( clc.downloadList + length, sizeof( clc.downloadList ) - length, qtrue ) ) 
+				|| length > 0
+				|| ( ( pure == 0 )
+					&& FS_autoloadComparePaks( clc.downloadList, sizeof( clc.downloadList ), qtrue ) ) ) )
 		{
 
 			Com_Printf( "Need paks: %s\n", clc.downloadList );
 			
 			if ( *clc.downloadList ) 
 			{
+				clc.downloadType = DT_CLIENT_CONNECT;
+				Q_strncpyz( clc.downloadMap, FS_GetAutoloadMap(), sizeof( clc.downloadMap ) );
+
 				// if autodownloading is not enabled on the server
 				clc.state = CA_CONNECTED;
 
@@ -2418,6 +2426,7 @@ void CL_InitDownloads(void) {
 			}
 		}
 	} else
+#endif
   if ( !(cl_allowDownload->integer & DLF_ENABLE) )
   {
     // autodownload is disabled on the client
@@ -3569,6 +3578,123 @@ static void CL_GenerateQKey(void)
 	}
 } 
 
+#ifdef USE_CURL
+void CL_DownloadMap_f( void )
+{
+	char map_filename[MAX_OSPATH + 1];
+	char *p;
+
+	if( Cmd_Argc( ) != 2 )
+	{
+		Com_Printf( "Usage: downloadMap <filename>\n" );
+		return;
+	}
+	if( fs_autoload->integer <= 0 )
+	{
+		Com_Printf( "Autoload needs to be enabled. (fs_autoload)\n" );
+		return;
+	}
+
+	if( *clc.downloadList ) 
+	{
+		Com_Printf( "Download still in progress.\n" );
+		return;
+	}
+	Q_strncpyz( map_filename, Cmd_ArgsFrom( 1 ), sizeof( map_filename ) );
+	if( strstr( map_filename, "@" ) != NULL )
+	{
+		Com_Printf( "Cannot download files with the \"at sign\" (@) character.\n" );
+		return;
+	}
+	p = strstr( map_filename, ".bsp" );
+	if( p != NULL )
+	{
+		*p = '\0';
+	
+	}
+
+	FS_CompareMapPaks( clc.downloadList, sizeof( clc.downloadList ), map_filename, qtrue );
+
+	if( *clc.downloadList == '\0' )
+	{
+		Com_Printf( "File(s) already exist.\n" );
+		return;
+	}
+
+	*clc.downloadTempName = *clc.downloadName = 0;
+	Cvar_Set( "cl_downloadName", "" );
+
+	clc.downloadPreState = clc.state;
+	Q_strncpyz( clc.downloadMap, map_filename, sizeof( clc.downloadMap ) );
+	clc.downloadType = DT_DOWNLOADMAP_COMMAND;
+	clc.state = CA_CONNECTED;
+	Key_SetCatcher( 0 );
+	SCR_UpdateScreen();
+
+	CL_NextDownload();
+	
+}
+
+void CL_DownloadPk3_f( void )
+{
+	char filename[MAX_OSPATH + 1];
+	char *p;
+	char downloadfile[MAX_OSPATH + 1];
+	long filesize;
+
+	if( Cmd_Argc( ) != 2 )
+	{
+		Com_Printf( "Usage: downloadPk3 <filename>\n" );
+		return;
+	}
+
+	if( *clc.downloadList ) 
+	{
+		Com_Printf( "Download still in progress.\n" );
+		return;
+	}
+	Q_strncpyz( filename, Cmd_ArgsFrom( 1 ), sizeof( filename ) );
+	if( strstr( filename, "@" ) != NULL )
+	{
+		Com_Printf( "Cannot download files with the \"at sign\" (@) character.\n" );
+		return;
+	}
+	p = strstr( filename, ".pk3" );
+	if( p == NULL )
+	{
+		Q_strcat( filename, sizeof( filename ), ".pk3" );
+	}
+
+	if( fs_autoload->integer > 0 )
+	{
+		Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/autoload/maps/%s", FS_GetCurrentGameDir(), filename );
+	} else
+	{
+		Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/%s", FS_GetCurrentGameDir(), filename );
+	}
+
+	filesize = FS_FOpenFileRead( downloadfile, NULL, qfalse );
+	if( filesize > 0 )
+	{
+		Com_Printf( "File already exist.\n" );
+		return;
+	}
+
+	Com_sprintf( clc.downloadList, sizeof( clc.downloadList ), "@%s@%s", FS_ReturnFilename( downloadfile ), downloadfile ); //"@remote@local"
+
+	*clc.downloadTempName = *clc.downloadName = 0;
+	Cvar_Set( "cl_downloadName", "" );
+
+	clc.downloadPreState = clc.state;
+	clc.downloadType = DT_DOWNLOADPK3_COMMAND;
+	clc.state = CA_CONNECTED;
+	Key_SetCatcher( 0 );
+	SCR_UpdateScreen();
+
+	CL_NextDownload();
+}
+#endif
+
 /*
 ====================
 CL_Init
@@ -3641,8 +3767,10 @@ void CL_Init( void ) {
 	cl_showMouseRate = Cvar_Get ("cl_showmouserate", "0", 0);
 
 	cl_allowDownload = Cvar_Get ("cl_allowDownload", "0", CVAR_ARCHIVE);
+#ifdef USE_CURL
 	cl_mapAutoDownload = Cvar_Get ("cl_mapAutoDownload", "1", CVAR_ARCHIVE);
 	cl_mapAutoDownload_source = Cvar_Get ("cl_mapAutoDownload_source", "http://ws.q3df.org/maps/downloads/", CVAR_ARCHIVE);
+#endif
 #ifdef USE_CURL_DLOPEN
 	cl_cURLLib = Cvar_Get("cl_cURLLib", DEFAULT_CURL_LIB, CVAR_ARCHIVE);
 #endif
@@ -3774,6 +3902,10 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("model", CL_SetModel_f );
 	Cmd_AddCommand ("video", CL_Video_f );
 	Cmd_AddCommand ("stopvideo", CL_StopVideo_f );
+#ifdef USE_CURL
+	Cmd_AddCommand ("downloadMap", CL_DownloadMap_f );
+	Cmd_AddCommand ("downloadPk3", CL_DownloadPk3_f );
+#endif
 	CL_InitRef();
 
 	SCR_Init ();

@@ -164,13 +164,15 @@ static void SV_Map_f( void ) {
 		return;
 	}
 
+	cmd = Cmd_Argv(0);
+
 	// make sure the level exists before trying to change, so that
 	// a typo at the server console won't end the game
 	Com_sprintf (expanded, sizeof(expanded), "maps/%s.bsp", map);
 	if ( FS_ReadFile (expanded, NULL) == -1 ) {
 		if( Q_stricmp( cmd, "devmap" ) != 0 ) 
 		{
-			FS_AutoLoadMapCmd( map );
+			FS_AutoLoadMap( map );
 		}
 		if ( FS_ReadFile (expanded, NULL) == -1 ) {
 			Com_Printf ("Can't find map %s\n", expanded);
@@ -181,7 +183,6 @@ static void SV_Map_f( void ) {
 	// force latched values to get set
 	Cvar_Get ("g_gametype", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH );
 
-	cmd = Cmd_Argv(0);
 	if( Q_stricmpn( cmd, "sp", 2 ) == 0 ) {
 		Cvar_SetValue( "g_gametype", GT_SINGLE_PLAYER );
 		Cvar_SetValue( "g_doWarmup", 0 );

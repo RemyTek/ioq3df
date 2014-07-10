@@ -734,13 +734,16 @@ void	FS_FilenameCompletion( const char *dir, const char *ext,
 		qboolean stripExt, void(*callback)(const char *s), qboolean allowNonPureFilesOnDisk );
 void	FS_MapFilenameCompletion( const char *dir, const char *ext,
 		qboolean stripExt, void(*callback)(const char *s), qboolean allowNonPureFilesOnDisk );
-void FS_AutoLoadMapCmd( const char *map );
-void FS_AutoLoad( const char *gameName, cvar_t *fs_basepath, cvar_t *fs_homepath, cvar_t *fs_gamedirvar );
+void FS_AutoLoadMap( const char *map );
+void FS_AutoLoad( void );
 extern cvar_t	*fs_autoload;
-extern qboolean fs_autoloadhasmapdep;
-extern char fs_autoloadmap[BIG_INFO_VALUE];
+qboolean FS_CompareCurrentMapDep( char *neededpaks, int max_length );
+qboolean FS_SetAutoloadMap( const char *map );
+const char *FS_GetAutoloadMap( void );
 const char *FS_ReturnFilename( const char *full_path );
 qboolean FS_autoloadComparePaks( char *neededpaks, int len, qboolean dlstring );
+qboolean FS_CreateMapDepFilepath( char *qfilepath, int max_length, const char *map );
+qboolean FS_CompareMapPaks( char *neededpaks, int max_length, const char *map, qboolean addMapDep );
 
 const char *FS_GetCurrentGameDir(void);
 qboolean FS_Which(const char *filename, void *searchPath);

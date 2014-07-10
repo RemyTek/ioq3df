@@ -452,9 +452,7 @@ static void CL_ParseServerInfo(void)
 		Info_ValueForKey(serverInfo, "sv_dlURL"),
 		sizeof(clc.sv_dlURL));
 
-	Q_strncpyz( fs_autoloadmap,
-		Info_ValueForKey( serverInfo, "mapname" ),
-		sizeof( fs_autoloadmap ));
+	FS_SetAutoloadMap( Info_ValueForKey( serverInfo, "mapname" ) );
 
 }
 

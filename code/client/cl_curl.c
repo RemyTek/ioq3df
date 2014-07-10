@@ -215,7 +215,6 @@ static size_t CL_cURL_CallbackHeader( void *ptr, size_t size, size_t nmemb, void
 	char buf[1024];
 	char *c;
 
-
 	if( size * nmemb == 0 ) 
 	{
 		return 0;
@@ -254,6 +253,22 @@ static size_t CL_cURL_CallbackHeader( void *ptr, size_t size, size_t nmemb, void
 		{
 			Q_strncpyz( clc.downloadMotd, buf + 12, sizeof( clc.downloadMotd ) );
 		}
+	}
+	if( !Q_stricmpn( buf, "HTTP/1", 6 ) ) 
+	{
+		const char * p;
+		unsigned int x;
+		p = buf;
+		x = 0;
+		while( *p != '\0' && x < 2 )
+		{
+			if( *p == ' ' )
+			{
+				x++;
+			}
+			p++;
+		}
+		Q_strncpyz( clc.downloadHTTPRepsonse, p, sizeof( clc.downloadHTTPRepsonse ) );
 	}
 	return size * nmemb;
 }
@@ -294,6 +309,8 @@ void CL_cURL_BeginDownload( const char *localName, const char *remoteURL )
 		return;
 	}
 
+	*clc.downloadHTTPRepsonse = '\0';
+
 	if(com_developer->integer)
 		qcurl_easy_setopt(clc.downloadCURL, CURLOPT_VERBOSE, 1);
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_URL, clc.downloadURL);
@@ -309,11 +326,13 @@ void CL_cURL_BeginDownload( const char *localName, const char *remoteURL )
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_PROGRESSFUNCTION,
 		CL_cURL_CallbackProgress);
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_PROGRESSDATA, NULL);
-	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_FAILONERROR, 1);
+//	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_FAILONERROR, 1);
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_FOLLOWLOCATION, 1);
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_MAXREDIRS, 5);
 	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_HEADERFUNCTION, 
 		CL_cURL_CallbackHeader );
+	qcurl_easy_setopt(clc.downloadCURL, CURLOPT_HEADER, 0);
+
 	clc.downloadCURLM = qcurl_multi_init();	
 	if(!clc.downloadCURLM) {
 		qcurl_easy_cleanup(clc.downloadCURL);
@@ -341,6 +360,8 @@ void CL_cURL_PerformDownload(void)
 	CURLMsg *msg;
 	int c;
 	int i = 0;
+	long code;
+	CURLcode result;
 
 	res = qcurl_multi_perform(clc.downloadCURLM, &c);
 	while(res == CURLM_CALL_MULTI_PERFORM && i < 100) {
@@ -354,15 +375,62 @@ void CL_cURL_PerformDownload(void)
 		return;
 	}
 	FS_FCloseFile(clc.download);
+
+	result = qcurl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE,
+		&code);
+
+	if( result == CURLE_OK 
+		&& code >= 400 
+		&& Q_stricmpn( clc.downloadURL, "http", 4 ) == 0 )
+	{
+		const char * errorText;
+		const char * errorText2;
+
+		if( msg->msg != CURLMSG_DONE || msg->data.result != CURLE_OK ) 
+		{
+			errorText2 = qcurl_easy_strerror( msg->data.result );
+		} else
+		{
+			errorText2 = "";
+		}
+
+		switch( code )
+		{
+			case 404:
+				errorText = "File not found";
+				break;
+			case 500:
+				errorText = "Internal Server Error";
+				break;
+			case 503:
+				errorText = "Service unavailable";
+				break;
+			case 429:
+				errorText = "Too many requests";
+				break;
+			default:
+				if( *clc.downloadHTTPRepsonse != '\0' )
+					errorText = clc.downloadHTTPRepsonse;
+				else
+					errorText = "Failed request";
+		}
+		if( !clc.downloadMandatory )
+		{
+			Com_Printf( S_COLOR_YELLOW "WARNING: " "Download Error: %s, %s HTTP statuscode: %ld URL: %s",
+				errorText,
+				errorText2,
+				code, clc.downloadURL );
+		} else
+		Com_Error( ERR_DROP, "Download Error: %s, %s HTTP statuscode: %ld URL: %s",
+			errorText,
+			errorText2,
+			code, clc.downloadURL );
+	}
 	if(msg->msg == CURLMSG_DONE && msg->data.result == CURLE_OK) {
 		FS_SV_Rename(clc.downloadTempName, clc.downloadName, qfalse);
 		clc.downloadRestart = qtrue;
 	}
 	else {
-		long code;
-
-		qcurl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE,
-			&code);
 		if( !clc.downloadMandatory )
 		{
 			Com_Printf( S_COLOR_YELLOW "WARNING: " "Download Error: %s Code: %ld URL: %s",
