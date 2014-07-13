@@ -48,9 +48,9 @@ typedef struct {
 
 	int		vislines;		// in scanlines
 
-	int		times[NUM_CHATCON_TIMES];	// cls.realtime time the line was generated
-								// for transparent notify lines
 	vec4_t	color;
+
+	qboolean showChat;
 } chatconsole_t;
 
 chatconsole_t	chatcon;
@@ -58,7 +58,10 @@ chatconsole_t	chatcon;
 //iodfe
 cvar_t		*cl_chat_timestamp;
 cvar_t		*cl_chat_timedisplay;
-cvar_t		*cl_chat_drawversion;
+
+cvar_t		*cl_chat_useshader;
+cvar_t		*cl_chat_opacity;
+cvar_t		*cl_chat_rgb;
 
 cvar_t		*cl_chat_conspeed;
 
@@ -79,8 +82,9 @@ void ChatCon_ToggleConsole_f (void) {
 	Field_Clear( &g_chatconsoleField );
 	g_chatconsoleField.widthInChars = g_chatconsole_field_width - (cl_chat_timedisplay->integer ? 9 : 0);
 
-	Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CONSOLE );
 	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_CHATCONSOLE );
+
+	chatcon.showChat = qfalse;
 }
 
 /*
@@ -190,6 +194,16 @@ void ChatCon_Dump_f (void)
 }
 						
 
+void ChatCon_ChatButtonDown_f( void )
+{
+	chatcon.showChat = qtrue;
+}
+
+void ChatCon_ChatButtonUp_f( void )
+{
+	chatcon.showChat = qfalse;
+}
+
 /*
 ================
 ChatCon_CheckResize
@@ -261,12 +275,15 @@ ChatCon_Init
 ================
 */
 void ChatCon_Init (void) {
-	int		i;
+//	int		i;
 
 	//iodfe
 	cl_chat_timestamp = Cvar_Get ("cl_chat_timestamp", "1", CVAR_ARCHIVE);
 	cl_chat_timedisplay = Cvar_Get ("cl_chat_timedisplay", "3", CVAR_ARCHIVE);
-	cl_chat_drawversion = Cvar_Get ("cl_chat_drawversion", "1", CVAR_ARCHIVE);
+
+	cl_chat_useshader = Cvar_Get("cl_chat_useshader", "0", CVAR_ARCHIVE);
+	cl_chat_opacity = Cvar_Get("cl_chat_opacity", "0.95", CVAR_ARCHIVE);
+	cl_chat_rgb = Cvar_Get("cl_chat_rgb", ".05 .05 .1", CVAR_ARCHIVE);
 
 	cl_chat_conspeed = Cvar_Get ("cl_chat_conspeed", "3", 0);
 
@@ -284,6 +301,9 @@ void ChatCon_Init (void) {
 	Cmd_AddCommand ("chatdump", ChatCon_Dump_f);
 	Cmd_SetCommandCompletionFunc( "chatdump", Cmd_CompleteTxtName );
 
+	Cmd_AddCommand ("+chat", ChatCon_ChatButtonDown_f);
+	Cmd_AddCommand ("-chat", ChatCon_ChatButtonUp_f);
+
 	//initialising chat console
 	if (!chatcon.initialized) {
 		chatcon.color[0] = 
@@ -292,6 +312,7 @@ void ChatCon_Init (void) {
 		chatcon.color[3] = 1.0f;
 		chatcon.linewidth = -1;
 		ChatCon_CheckResize ();
+		chatcon.showChat = qfalse;
 		chatcon.initialized = qtrue;
 	}
 
@@ -308,6 +329,8 @@ void ChatCon_Shutdown(void)
 	Cmd_RemoveCommand("togglechatmenu");
 	Cmd_RemoveCommand("chatclear");
 	Cmd_RemoveCommand("chatdump");
+	Cmd_RemoveCommand("+chat");
+	Cmd_RemoveCommand("-chat");
 }
 
 /*
@@ -318,15 +341,6 @@ ChatCon_Linefeed
 void ChatCon_Linefeed (qboolean skipnotify)
 {
 	int		i;
-
-	// mark time for transparent overlay
-	if (chatcon.current >= 0)
-	{
-    if (skipnotify)
-		  chatcon.times[chatcon.current % NUM_CHATCON_TIMES] = 0;
-    else
-		  chatcon.times[chatcon.current % NUM_CHATCON_TIMES] = cls.realtime;
-	}
 
 	chatcon.x = 0;
 	if (chatcon.display == chatcon.current)
@@ -350,7 +364,6 @@ void CL_ChatConsolePrint( char *txt ) {
 	unsigned char	c;
 	unsigned short	color;
 	qboolean skipnotify = qfalse;		// NERVE - SMF
-	int prev;							// NERVE - SMF
 
 	//iodfe
 	if (chatcon.x==0 && cl_chat_timestamp && cl_chat_timestamp->integer) {
@@ -383,6 +396,7 @@ void CL_ChatConsolePrint( char *txt ) {
 		chatcon.color[3] = 1.0f;
 		chatcon.linewidth = -1;
 		ChatCon_CheckResize ();
+		chatcon.showChat = qfalse;
 		chatcon.initialized = qtrue;
 	}
 
@@ -429,20 +443,6 @@ void CL_ChatConsolePrint( char *txt ) {
 		}
 	}
 
-
-	// mark time for transparent overlay
-	if (chatcon.current >= 0) {
-		// NERVE - SMF
-		if ( skipnotify ) {
-			prev = chatcon.current % NUM_CHATCON_TIMES - 1;
-			if ( prev < 0 )
-				prev = NUM_CHATCON_TIMES - 1;
-			chatcon.times[prev] = 0;
-		}
-		else
-		// -NERVE - SMF
-			chatcon.times[chatcon.current % NUM_CHATCON_TIMES] = cls.realtime;
-	}
 }
 
 
@@ -465,13 +465,18 @@ Draw the editline after a ] prompt
 void ChatCon_DrawInput (void) {
 	int		y;
 	int		x = 0;
-	vec4_t	color;
+//	vec4_t	color;
 
-	if ( clc.state != CA_DISCONNECTED && !(Key_GetCatcher( ) & KEYCATCH_CHATCONSOLE ) ) {
+	if( clc.state != CA_DISCONNECTED && !( Key_GetCatcher() & KEYCATCH_CHATCONSOLE ) ) {
+		return;
+	}
+	if( Key_GetCatcher() & KEYCATCH_CONSOLE )
+	{
 		return;
 	}
 
-	y = chatcon.vislines - ( SMALLCHAR_HEIGHT * 2 );
+//	y = chatcon.vislines - ( SMALLCHAR_HEIGHT * 2 );
+	y = SCREEN_HEIGHT - ( SMALLCHAR_HEIGHT * 2 );
 
 	if (cl_chat_timedisplay->integer & 1) {
 		char ts[9];
@@ -488,15 +493,6 @@ void ChatCon_DrawInput (void) {
 		x = 9;
 	}
 
-/*	black background
-	color[0] = 0.0f;;
-	color[1] = 0.0f;;
-	color[2] = 0.0f;;
-	color[3] = 0.5f;
-
-	SCR_FillRect( x * SMALLCHAR_WIDTH, y, ( g_chatconsole_field_width - x ) * SMALLCHAR_WIDTH, 
-		SMALLCHAR_HEIGHT, color );
-*/
 	re.SetColor( chatcon.color );
 
 	SCR_DrawSmallChar( chatcon.xadjust + (x+1) * SMALLCHAR_WIDTH, y, ']' );
@@ -542,38 +538,30 @@ void ChatCon_DrawSolidConsole( float frac ) {
 		y = 0;
 	}
 	else {
-		SCR_DrawPic( 0, 0, SCREEN_WIDTH, y, cls.consoleShader );
+		if( cl_chat_useshader->integer ) 
+		{
+			SCR_DrawPic( 0, 0+SCREEN_HEIGHT-y, SCREEN_WIDTH, y, cls.consoleShader );
+		} else
+		{
+			vec4_t color;
+			char *c = cl_chat_rgb->string;
+			color[0] = atof(COM_Parse(&c));
+			color[1] = atof(COM_Parse(&c));
+			color[2] = atof(COM_Parse(&c));
+			color[3] = cl_chat_opacity->value;
+			SCR_FillRect( 0, 0+SCREEN_HEIGHT-y, SCREEN_WIDTH, y, color );
+		}
 	}
 
+	//red line
 	color[0] = 1;
 	color[1] = 0;
 	color[2] = 0;
 	color[3] = 1;
-	SCR_FillRect( 0, y, SCREEN_WIDTH, 2, color );
-
-/*	black background
-	color[0] = 0.0f;;
-	color[1] = 0.0f;;
-	color[2] = 0.0f;;
-	color[3] = 0.5f;
-
-	SCR_FillRect( SMALLCHAR_WIDTH, SMALLCHAR_HEIGHT, ( g_chatconsole_field_width - 0 ) * SMALLCHAR_WIDTH, 
-		lines - ( SMALLCHAR_HEIGHT * 2 ), color );
-*/
+	SCR_FillRect( 0, SCREEN_HEIGHT-y, SCREEN_WIDTH, 2, color );
 
 	// draw the version number
-
 	re.SetColor( g_color_table[ColorIndex(COLOR_RED)] );
-
-	if (cl_chat_drawversion->integer) {
-		i = strlen( Q3_VERSION );
-
-		for (x=0 ; x<i ; x++) {
-			SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x + 1 ) * SMALLCHAR_WIDTH, 
-				SMALLCHAR_HEIGHT * 1, Q3_VERSION[x] );
-//				(lines-(SMALLCHAR_HEIGHT+SMALLCHAR_HEIGHT/2)), Q3_VERSION[x] );
-		}
-	}
 
 	if (cl_chat_timedisplay->integer & 2) {
 		char ts[30];
@@ -585,16 +573,17 @@ void ChatCon_DrawSolidConsole( float frac ) {
 
 		for (x = 0 ; x<i ; x++) {
 			SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x ) * SMALLCHAR_WIDTH, 
-				SMALLCHAR_HEIGHT * 2, ts[x]);
-//				lines - (SMALLCHAR_HEIGHT * (cl_chat_drawversion->integer ? 2 : 1) + SMALLCHAR_HEIGHT/2), ts[x]);
+				SMALLCHAR_HEIGHT * 2+SCREEN_HEIGHT-y, ts[x]);
 		}
 	}
 
 	// draw the text
 	chatcon.vislines = lines;
-	rows = (lines-SMALLCHAR_WIDTH)/SMALLCHAR_WIDTH;		// rows of text to draw
+//	rows = (lines-SMALLCHAR_WIDTH)/SMALLCHAR_WIDTH;		// rows of text to draw
+	rows = ( lines - SMALLCHAR_HEIGHT * 3 ) / SMALLCHAR_HEIGHT;
 
-	y = lines - (SMALLCHAR_HEIGHT*3);
+//	y = lines - (SMALLCHAR_HEIGHT*3);
+	y = SCREEN_HEIGHT - ( SMALLCHAR_HEIGHT * 3 );
 
 	// draw from the bottom up
 	if (chatcon.display != chatcon.current)
@@ -636,7 +625,7 @@ void ChatCon_DrawSolidConsole( float frac ) {
 				currentColor = (text[x]>>8)&7;
 				re.SetColor( g_color_table[currentColor] );
 			}
-			SCR_DrawSmallChar(  chatcon.xadjust + (x+1)*SMALLCHAR_WIDTH, y, text[x] & 0xff );
+			SCR_DrawSmallChar( chatcon.xadjust + (x+1)*SMALLCHAR_WIDTH, y, text[x] & 0xff );
 		}
 	}
 
@@ -657,17 +646,14 @@ void ChatCon_DrawConsole( void ) {
 	// check for console width changes from a vid mode change
 	ChatCon_CheckResize ();
 
-	// if disconnected, render console full screen
-/*	if ( clc.state == CA_DISCONNECTED ) {
-		if ( !( Key_GetCatcher( ) & (KEYCATCH_UI | KEYCATCH_CGAME)) ) {
-			ChatCon_DrawSolidConsole( 1.0 );
-			return;
-		}
-	}
-*/
 	if ( chatcon.displayFrac ) {
 		ChatCon_DrawSolidConsole( chatcon.displayFrac );
-	} else {
+	} else 
+	if( chatcon.showChat ) 
+	{
+		ChatCon_DrawSolidConsole( 0.5 );
+	} else
+	{
 
 	}
 }
@@ -742,7 +728,6 @@ void ChatCon_Close( void ) {
 	chatcon.finalFrac = 0;				// none visible
 	chatcon.displayFrac = 0;
 }
-
 
 
 

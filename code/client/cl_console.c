@@ -60,6 +60,11 @@ cvar_t		*con_timestamp;
 cvar_t		*con_timedisplay;
 cvar_t		*con_drawversion;
 
+// Cgg
+cvar_t		*con_useshader;
+cvar_t		*con_opacity;
+cvar_t		*con_rgb;
+
 cvar_t		*con_conspeed;
 cvar_t		*con_notifytime;
 
@@ -82,7 +87,6 @@ void Con_ToggleConsole_f (void) {
 
 	Con_ClearNotify ();
 	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_CONSOLE );
-	Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CHATCONSOLE );
 }
 
 /*
@@ -356,7 +360,11 @@ void Con_Init (void) {
 	con_timestamp = Cvar_Get ("con_timestamp", "1", CVAR_ARCHIVE);
 	con_timedisplay = Cvar_Get ("con_timedisplay", "3", CVAR_ARCHIVE);
 	con_drawversion = Cvar_Get ("con_drawversion", "1", CVAR_ARCHIVE);
-
+	// Cgg
+	con_useshader = Cvar_Get("con_useshader", "1", CVAR_ARCHIVE);
+	con_opacity = Cvar_Get("con_opacity", "0.95", CVAR_ARCHIVE);
+	con_rgb = Cvar_Get("con_rgb", ".05 .05 .1", CVAR_ARCHIVE);
+	// !Cgg
 	con_notifytime = Cvar_Get ("con_notifytime", "3", 0);
 	con_conspeed = Cvar_Get ("scr_conspeed", "3", 0);
 
@@ -692,7 +700,19 @@ void Con_DrawSolidConsole( float frac ) {
 		y = 0;
 	}
 	else {
-		SCR_DrawPic( 0, 0, SCREEN_WIDTH, y, cls.consoleShader );
+		// Cgg
+		if (con_useshader->integer) {
+			SCR_DrawPic( 0, 0, SCREEN_WIDTH, y, cls.consoleShader );
+		} else {
+			vec4_t color;
+			char *c = con_rgb->string;
+			color[0] = atof(COM_Parse(&c));
+			color[1] = atof(COM_Parse(&c));
+			color[2] = atof(COM_Parse(&c));
+			color[3] = con_opacity->value;
+			SCR_FillRect( 0, 0, SCREEN_WIDTH, y, color );
+		}
+		// !Cgg
 	}
 
 	color[0] = 1;

@@ -570,9 +570,9 @@ void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
 		VM_Call( uivm, UI_REFRESH, cls.realtime );
 	}
 
+	ChatCon_DrawConsole ();
 	// console draws next
 	Con_DrawConsole ();
-	ChatCon_DrawConsole ();
 
 	// debug graph can be drawn on top of anything
 	if ( cl_debuggraph->integer || cl_timegraph->integer || cl_debugMove->integer ) {

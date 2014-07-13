@@ -9,15 +9,17 @@ The auto download will download map dependency files to autoload/mapdeps/\*.json
 cl_mapAutoDownload 		[0/1]  
 cl_mapAutoDownload\_source  
 fs_autoload 			[0/1]  
-New commands:
-downloadMap <filename>
+New commands:  
+downloadMap <filename>  
 downloadPk3 <filename>
+
 
 Chat console:  
 To open the chat console use ctrl+tab or bind a key to one of the new commands:  
 togglechatconsole  
 chatclear  
 chatdump
++chat		to use it like the scoreboard bind a key with \bind p +chat
 
 
 r_defaultImage to replace the default (missing texture) images  
@@ -48,3 +50,13 @@ con_drawversion		- toggles version at right bottom console corner
 in_numpadbug [0-1] 	- fixes non-working numpad on Windows
 
 r_xpos, r_ypos		- game window position
+
+dfengine features:
+con_useshader [0-1]  
+con_rgb  
+con_opacity [0.0-1.0]
+
+
+ioquake3 does use the folder %appdata%\Quake3 on windows to store config and such files.  
+If you want to use the original Quake install path add these start parameters:  
++set fs_homepath "C:\pathTo\Quake III Arena"
