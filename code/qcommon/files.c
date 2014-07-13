@@ -4770,7 +4770,7 @@ qboolean FS_CreateMapDepFilepath( char *qFilepath, int max_length, const char *m
 	if( !qFilepath || !map || *map == '\0' )
 		return qfalse;
 
-	Com_sprintf( qFilepath, max_length, "%s/autoload/mapdeps/%s.json", FS_GetCurrentGameDir(), map );
+	Com_sprintf( qFilepath, max_length, "%s/autoload/mapdeps/%s.json", BASEGAME, map );
 
 	return qtrue;
 }

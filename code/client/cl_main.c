@@ -2304,7 +2304,7 @@ void CL_NextDownload(void)
 				{
 					if( fs_autoload->integer > 0 )
 					{
-						Com_sprintf( autoloadfile, sizeof( autoloadfile ), "%s/autoload/maps/%s", FS_GetCurrentGameDir(), FS_ReturnFilename( localName ) );
+						Com_sprintf( autoloadfile, sizeof( autoloadfile ), "%s/autoload/maps/%s", BASEGAME, FS_ReturnFilename( localName ) );
 					} else
 					{
 						Q_strncpyz( autoloadfile, localName, sizeof( autoloadfile ) );
@@ -3667,7 +3667,7 @@ void CL_DownloadPk3_f( void )
 
 	if( fs_autoload->integer > 0 )
 	{
-		Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/autoload/maps/%s", FS_GetCurrentGameDir(), filename );
+		Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/autoload/maps/%s", BASEGAME, filename );
 	} else
 	{
 		Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/%s", FS_GetCurrentGameDir(), filename );
