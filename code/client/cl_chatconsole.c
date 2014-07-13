@@ -62,6 +62,7 @@ cvar_t		*cl_chat_timedisplay;
 cvar_t		*cl_chat_useshader;
 cvar_t		*cl_chat_opacity;
 cvar_t		*cl_chat_rgb;
+cvar_t		*cl_chat_height;
 
 cvar_t		*cl_chat_conspeed;
 
@@ -82,9 +83,9 @@ void ChatCon_ToggleConsole_f (void) {
 	Field_Clear( &g_chatconsoleField );
 	g_chatconsoleField.widthInChars = g_chatconsole_field_width - (cl_chat_timedisplay->integer ? 9 : 0);
 
-	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_CHATCONSOLE );
-
 	chatcon.showChat = qfalse;
+
+	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_CHATCONSOLE );
 }
 
 /*
@@ -284,6 +285,7 @@ void ChatCon_Init (void) {
 	cl_chat_useshader = Cvar_Get("cl_chat_useshader", "0", CVAR_ARCHIVE);
 	cl_chat_opacity = Cvar_Get("cl_chat_opacity", "0.95", CVAR_ARCHIVE);
 	cl_chat_rgb = Cvar_Get("cl_chat_rgb", ".05 .05 .1", CVAR_ARCHIVE);
+	cl_chat_height = Cvar_Get("cl_chat_height", ".5", CVAR_ARCHIVE);
 
 	cl_chat_conspeed = Cvar_Get ("cl_chat_conspeed", "3", 0);
 
@@ -476,7 +478,7 @@ void ChatCon_DrawInput (void) {
 	}
 
 //	y = chatcon.vislines - ( SMALLCHAR_HEIGHT * 2 );
-	y = SCREEN_HEIGHT - ( SMALLCHAR_HEIGHT * 2 );
+	y = cls.glconfig.vidHeight - ( SMALLCHAR_HEIGHT * 2 );
 
 	if (cl_chat_timedisplay->integer & 1) {
 		char ts[9];
@@ -573,7 +575,9 @@ void ChatCon_DrawSolidConsole( float frac ) {
 
 		for (x = 0 ; x<i ; x++) {
 			SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x ) * SMALLCHAR_WIDTH, 
-				SMALLCHAR_HEIGHT * 2+SCREEN_HEIGHT-y, ts[x]);
+//				SMALLCHAR_HEIGHT * 2+SCREEN_HEIGHT-y, ts[x]);
+				SMALLCHAR_HEIGHT * 2+cls.glconfig.vidHeight-lines, ts[x]);
+
 		}
 	}
 
@@ -583,7 +587,7 @@ void ChatCon_DrawSolidConsole( float frac ) {
 	rows = ( lines - SMALLCHAR_HEIGHT * 3 ) / SMALLCHAR_HEIGHT;
 
 //	y = lines - (SMALLCHAR_HEIGHT*3);
-	y = SCREEN_HEIGHT - ( SMALLCHAR_HEIGHT * 3 );
+	y = cls.glconfig.vidHeight - ( SMALLCHAR_HEIGHT * 3 );
 
 	// draw from the bottom up
 	if (chatcon.display != chatcon.current)
@@ -651,7 +655,12 @@ void ChatCon_DrawConsole( void ) {
 	} else 
 	if( chatcon.showChat ) 
 	{
-		ChatCon_DrawSolidConsole( 0.5 );
+		float frac = cl_chat_height->value;
+		if( frac > 1.0f )
+			frac = 1.0f;
+		else if( frac < 0.05f )
+			frac = 0.05f;
+		ChatCon_DrawSolidConsole( frac );
 	} else
 	{
 
@@ -670,8 +679,14 @@ Scroll it up or down
 void ChatCon_RunConsole (void) {
 	// decide on the destination height of the console
 	if ( Key_GetCatcher( ) & KEYCATCH_CHATCONSOLE )
-		chatcon.finalFrac = 0.5;		// half screen
-	else
+	{
+		float frac = cl_chat_height->value;
+		if( frac > 1.0f )
+			frac = 1.0f;
+		else if( frac < 0.05f )
+			frac = 0.05f;
+		chatcon.finalFrac = frac;
+	} else
 		chatcon.finalFrac = 0;				// none visible
 	
 	// scroll towards the destination height

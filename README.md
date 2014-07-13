@@ -43,19 +43,19 @@ iodfe_hud\_pitch_thickness
 iodfe_hud\_pitch_width  
 iodfe_hud\_pitch_x	- x position
 
-con_timestamp [0-1]	- adds a timestamp at each message in console  
+con_timestamp [0/1]	- adds a timestamp at each message in console  
 con_timedisplay [0-3]	- displays time at input line (1), at right bottom console corner (2) or at both places (3)  
-con_drawversion		- toggles version at right bottom console corner
+con_drawversion [0/1]	- toggles version at right bottom console corner
 
-in_numpadbug [0-1] 	- fixes non-working numpad on Windows
+in_numpadbug [0/1] 	- fixes non-working numpad on Windows
 
 r_xpos, r_ypos		- game window position
 
 dfengine features:
-con_useshader [0-1]  
+con_useshader [0/1]  
 con_rgb  
 con_opacity [0.0-1.0]
-
+con_height  [0.0-1.0]
 
 ioquake3 does use the folder %appdata%\Quake3 on windows to store config and such files.  
 If you want to use the original Quake install path add these start parameters:  

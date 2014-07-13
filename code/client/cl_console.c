@@ -64,6 +64,7 @@ cvar_t		*con_drawversion;
 cvar_t		*con_useshader;
 cvar_t		*con_opacity;
 cvar_t		*con_rgb;
+cvar_t		*con_height;
 
 cvar_t		*con_conspeed;
 cvar_t		*con_notifytime;
@@ -365,6 +366,8 @@ void Con_Init (void) {
 	con_opacity = Cvar_Get("con_opacity", "0.95", CVAR_ARCHIVE);
 	con_rgb = Cvar_Get("con_rgb", ".05 .05 .1", CVAR_ARCHIVE);
 	// !Cgg
+	con_height = Cvar_Get("con_height", ".5", CVAR_ARCHIVE);
+
 	con_notifytime = Cvar_Get ("con_notifytime", "3", 0);
 	con_conspeed = Cvar_Get ("scr_conspeed", "3", 0);
 
@@ -846,8 +849,14 @@ Scroll it up or down
 void Con_RunConsole (void) {
 	// decide on the destination height of the console
 	if ( Key_GetCatcher( ) & KEYCATCH_CONSOLE )
-		con.finalFrac = 0.5;		// half screen
-	else
+	{
+		float frac = con_height->value;
+		if( frac > 1.0f )
+			frac = 1.0f;
+		else if( frac < 0.05f )
+			frac = 0.05f;
+		con.finalFrac = frac;
+	} else
 		con.finalFrac = 0;				// none visible
 	
 	// scroll towards the destination height
@@ -906,3 +915,4 @@ void Con_Close( void ) {
 
 	ChatCon_Close();
 }
+
