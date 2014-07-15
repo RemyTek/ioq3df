@@ -4736,6 +4736,32 @@ void FS_MapFilenameCompletion( const char *dir, const char *ext,
 	}
 	FS_SortFileList( filenames, nfiles );
 
+	//delete double entries
+	if( stripExt && filenames && filenames2 ) 
+	{
+		char	filename2[ MAX_STRING_CHARS ];
+
+		for( i = 0 ; i < nfiles - 1; i++ ) 
+		{
+			if( filenames[ i ] && filenames[ i + 1 ] )
+			{
+				Q_strncpyz( filename, filenames[ i ], MAX_STRING_CHARS );
+				Q_strncpyz( filename2, filenames[ i + 1 ], MAX_STRING_CHARS );
+
+				COM_StripExtension( filename, filename, sizeof( filename ) );
+				COM_StripExtension( filename2, filename2, sizeof( filename2 ) );
+
+				if(	Q_stricmp( filename, filename2 ) == 0 )
+				{
+					i++;
+					filenames[ i ][0] = '\0';
+				}
+			}
+		}
+		filenames = Sys_ConcatenateFileLists( filenames, NULL );
+		nfiles = Sys_CountFileList( filenames );
+	}
+
 	for( i = 0; i < nfiles; i++ ) {
 		FS_ConvertPath( filenames[ i ] );
 		Q_strncpyz( filename, filenames[ i ], MAX_STRING_CHARS );
