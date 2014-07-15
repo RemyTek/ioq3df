@@ -170,10 +170,7 @@ static void SV_Map_f( void ) {
 	// a typo at the server console won't end the game
 	Com_sprintf (expanded, sizeof(expanded), "maps/%s.bsp", map);
 	if ( FS_ReadFile (expanded, NULL) == -1 ) {
-		if( Q_stricmp( cmd, "devmap" ) != 0 ) 
-		{
-			FS_AutoLoadMap( map );
-		}
+		FS_AutoLoadMap( map );
 		if ( FS_ReadFile (expanded, NULL) == -1 ) {
 			Com_Printf ("Can't find map %s\n", expanded);
 			return;
