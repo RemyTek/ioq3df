@@ -4638,7 +4638,7 @@ void FS_AutoLoadMapCmd( const char *map, char *missingPaks, int max_length, qboo
 		{
 			pak_filename = pak_list[ x ];
 
-			Q_strncpyz( pk3_filename, pak_filename, sizeof( pk3_filename ) );
+			Com_sprintf( pk3_filename, sizeof( pk3_filename ), "%s/%s", BASEGAME, pak_filename );
 			length = strlen( pk3_filename );
 			if( length > 4 && Q_stricmp( pk3_filename + length - 4, ".pk3" ) == 0 )
 			{
@@ -4835,7 +4835,7 @@ qboolean FS_CompareMapPaks( char *neededpaks, int max_length, const char *map, q
 		{
 			pak_filename = pak_list[ x ];
 
-			Q_strncpyz( downloadfile, pak_filename, sizeof( downloadfile ) );
+			Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/%s", BASEGAME, pak_filename );
 			length = strlen( downloadfile );
 			if( length > 4 && Q_stricmp( downloadfile + length - 4, ".pk3" ) == 0 )
 			{
