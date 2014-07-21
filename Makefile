@@ -247,6 +247,7 @@ NDIR=$(MOUNT_DIR)/null
 UIDIR=$(MOUNT_DIR)/ui
 Q3UIDIR=$(MOUNT_DIR)/q3_ui
 JPDIR=$(MOUNT_DIR)/jpeg-8c
+JSMNDIR=$(MOUNT_DIR)/jsmn
 SPEEXDIR=$(MOUNT_DIR)/libspeex
 OGGDIR=$(MOUNT_DIR)/libogg-1.3.1
 VORBISDIR=$(MOUNT_DIR)/libvorbis-1.3.4
@@ -1512,7 +1513,6 @@ Q3OBJ = \
   $(B)/client/cl_chatconsole.o \
   $(B)/client/cl_console.o \
   $(B)/client/cl_hud_snap.o \
-  $(B)/client/cl_chatconsole.o \
   $(B)/client/cl_input.o \
   $(B)/client/cl_keys.o \
   $(B)/client/cl_main.o \
@@ -1531,6 +1531,7 @@ Q3OBJ = \
   $(B)/client/cmd.o \
   $(B)/client/common.o \
   $(B)/client/cvar.o \
+  $(B)/client/jsmn.o \
   $(B)/client/files.o \
   $(B)/client/md4.o \
   $(B)/client/md5.o \
@@ -1554,7 +1555,6 @@ Q3OBJ = \
   $(B)/client/qal.o \
   $(B)/client/snd_openal.o \
   \
-  $(B)/jsmn/jsmn.o \
   $(B)/client/cl_curl.o \
   \
   $(B)/client/sv_bot.o \
@@ -1605,6 +1605,7 @@ Q3OBJ = \
   $(B)/client/l_script.o \
   $(B)/client/l_struct.o \
   \
+  $(B)/client/sdl_clipboard.o \
   $(B)/client/sdl_input.o \
   $(B)/client/sdl_snd.o \
   \
@@ -2139,6 +2140,7 @@ Q3DOBJ = \
   $(B)/ded/cmd.o \
   $(B)/ded/common.o \
   $(B)/ded/cvar.o \
+  $(B)/ded/jsmn.o \
   $(B)/ded/files.o \
   $(B)/ded/md4.o \
   $(B)/ded/msg.o \
@@ -2549,6 +2551,9 @@ $(B)/client/%.o: $(CDIR)/%.c
 $(B)/client/%.o: $(SDIR)/%.c
 	$(DO_CC)
 
+$(B)/client/%.o: $(JSMNDIR)/%.c
+	$(DO_CC)
+
 $(B)/client/%.o: $(CMDIR)/%.c
 	$(DO_CC)
 
@@ -2595,6 +2600,9 @@ $(B)/client/%.o: $(SYSDIR)/%.rc
 	$(DO_WINDRES)
 
 
+$(B)/client/%.o: $(JSMNDIR)/%.c
+	$(DO_REF_CC)
+
 $(B)/renderergl1/%.o: $(CMDIR)/%.c
 	$(DO_REF_CC)
 
@@ -2631,6 +2639,9 @@ $(B)/ded/%.o: $(ASMDIR)/%.c
 	$(DO_CC) -march=k8
 
 $(B)/ded/%.o: $(SDIR)/%.c
+	$(DO_DED_CC)
+
+$(B)/ded/%.o: $(JSMNDIR)/%.c
 	$(DO_DED_CC)
 
 $(B)/ded/%.o: $(CMDIR)/%.c
@@ -2729,6 +2740,9 @@ $(B)/$(MISSIONPACK)/ui/bg_%.asm: $(GDIR)/bg_%.c $(Q3LCC)
 $(B)/$(MISSIONPACK)/ui/%.asm: $(UIDIR)/%.c $(Q3LCC)
 	$(DO_UI_Q3LCC_MISSIONPACK)
 
+
+$(B)/$(BASEGAME)/jsmn/%.o: $(JSMNDIR)/%.c
+	$(DO_SHLIB_CC)
 
 $(B)/$(BASEGAME)/qcommon/%.o: $(CMDIR)/%.c
 	$(DO_SHLIB_CC)

@@ -1305,6 +1305,11 @@ void RE_EndRegistration( void ) {
 }
 
 
+void RE_getcgamefov( vec2_t *fov ) {
+	(*fov)[0] = tr.cgamefov[0];
+	(*fov)[1] = tr.cgamefov[1];
+}
+
 /*
 @@@@@@@@@@@@@@@@@@@@@
 GetRefAPI
@@ -1369,5 +1374,7 @@ refexport_t *GetRefAPI ( int apiVersion, refimport_t *rimp ) {
 
 	re.TakeVideoFrame = RE_TakeVideoFrame;
 
+	re.getcgamefov = RE_getcgamefov;
+	
 	return &re;
 }

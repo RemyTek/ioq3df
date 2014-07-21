@@ -949,6 +949,8 @@ typedef struct {
 	float					sawToothTable[FUNCTABLE_SIZE];
 	float					inverseSawToothTable[FUNCTABLE_SIZE];
 	float					fogTable[FOG_TABLE_SIZE];
+
+	vec2_t					cgamefov;
 } trGlobals_t;
 
 extern backEndState_t	backEnd;
@@ -1058,6 +1060,7 @@ extern	cvar_t	*r_printShaders;
 
 extern cvar_t	*r_marksOnTriangleMeshes;
 
+extern cvar_t	*r_defaultImage;
 //====================================================================
 
 void R_SwapBuffers( int );

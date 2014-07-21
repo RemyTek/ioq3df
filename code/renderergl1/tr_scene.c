@@ -35,7 +35,6 @@ int			r_firstScenePoly;
 
 int			r_numpolyverts;
 
-vec2_t			cgamefov;
 
 /*
 ====================
@@ -314,8 +313,8 @@ void RE_RenderScene( const refdef_t *fd ) {
 	tr.refdef.fov_x = fd->fov_x;
 	tr.refdef.fov_y = fd->fov_y;
 	if ( !fd->rdflags ) {
-		cgamefov[0]=fd->fov_x;
-		cgamefov[1]=fd->fov_y;
+		tr.cgamefov[0]=fd->fov_x;
+		tr.cgamefov[1]=fd->fov_y;
 	}
 
 	VectorCopy( fd->vieworg, tr.refdef.vieworg );

@@ -201,9 +201,10 @@ void Cbuf_Execute (void)
 
 			if ( !(quotes&1)) {
 				if (i < cmd_text.cursize - 1) {
+					qboolean url;
 					//allow :// urls
-					if( !( i >= 2 && text[i-2] > ' ' && text[i-1] == ':' && text[i+2] > ' ' ) )
-					if (! in_star_comment && text[i] == '/' && text[i+1] == '/')
+					url = !( i >= 2 && text[i-2] > ' ' && text[i-1] == ':' && text[i+2] > ' ' );
+					if (url && ! in_star_comment && text[i] == '/' && text[i+1] == '/')
 						in_slash_comment = qtrue;
 					else if (! in_slash_comment && text[i] == '/' && text[i+1] == '*')
 						in_star_comment = qtrue;

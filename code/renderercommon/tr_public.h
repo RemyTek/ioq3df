@@ -26,7 +26,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #define	REF_API_VERSION		8
 
-extern vec2_t cgamefov;
 
 //
 // these are the functions exported by the refresh module
@@ -101,6 +100,7 @@ typedef struct {
 	qboolean (*inPVS)( const vec3_t p1, const vec3_t p2 );
 
 	void (*TakeVideoFrame)( int h, int w, byte* captureBuffer, byte *encodeBuffer, qboolean motionJpeg );
+	void (*getcgamefov)( vec2_t *fov );
 } refexport_t;
 
 //
