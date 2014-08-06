@@ -757,10 +757,15 @@ void ChatCon_CopyUrl( void ) {
 	char *line;
 	char *p;
 	char *word;
+	int	y;
 
 	textlines = ( chatcon.vislines - 3 * SMALLCHAR_HEIGHT ) / SMALLCHAR_HEIGHT;
 
-	textlinenum = ( ( textlines - floor( mouse_button_click_y / SMALLCHAR_HEIGHT ) ) );
+	//bottom
+	y = cls.glconfig.vidHeight - ( SMALLCHAR_HEIGHT * 2 );
+	textlinenum = floor( ( y - mouse_button_click_y ) / SMALLCHAR_HEIGHT );
+	//top
+//	textlinenum = ( ( textlines - floor( mouse_button_click_y / SMALLCHAR_HEIGHT ) ) );
 	if( textlinenum < 0 )
 		return;
 
