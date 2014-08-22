@@ -744,6 +744,7 @@ const char *FS_ReturnFilename( const char *full_path );
 qboolean FS_autoloadComparePaks( char *neededpaks, int len, qboolean dlstring );
 qboolean FS_CreateMapDepFilepath( char *qfilepath, int max_length, const char *map );
 qboolean FS_CompareMapPaks( char *neededpaks, int max_length, const char *map, qboolean addMapDep );
+int FS_PrintMapZipChecksum( const char *map, qboolean report_advanced );
 
 const char *FS_GetCurrentGameDir(void);
 qboolean FS_Which(const char *filename, void *searchPath);

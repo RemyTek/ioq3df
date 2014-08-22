@@ -4126,6 +4126,15 @@ static char fs_autoloadmap[MAX_QPATH];
 static qboolean fs_autoloadhasmapdep;
 static char fs_autoloadMissingPaks[MAX_INFO_STRING];
 
+typedef struct pak_file_s {
+	struct pak_file_s	*next;
+
+	char			*filename;
+	char			*md5;
+
+} pak_file_t;
+
+
 static int FS_AddCustomPak( const char *basepath, const char *game, const char *zipfilename ) 
 {
 	searchpath_t	*search;
@@ -4359,7 +4368,7 @@ static int FS_AutoloadAddPak( const char *pk3_filename )
 	return result;
 }
 
-static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const char *map, char **pak_list, int max_len )
+static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const char *map, pak_file_t **pak_list_p, int max_len )
 {
 	int			count;
 	const char	*pak_filename;
@@ -4367,12 +4376,18 @@ static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const 
 	int			r;
 	jsmn_parser p;
 	jsmntok_t	tokens[ MAX_MAP_DEPENDENCY_TOKENS ];
-	int			x, end, endarray;
+	int			x, end, endarray, endobject;
 	const char	*key;
 	static char PK3_FILENAME_KEY[] = "pk3 filename";
 	static char DEPENDENCIES_KEY[] = "dependencies";
+	static char MD5_KEY[] = "md5";
 	int			dep_count;
 	int			filename_length;
+	pak_file_t *pak_list;
+	pak_file_t *pak_file;
+	char		*pak_md5;
+	char		*dep_pak_md5;
+	const char	*dep_pak_filename;
 
 	jsmn_init( &p );
 
@@ -4391,6 +4406,10 @@ static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const 
 	Com_DPrintf( "Autoload: Parsing dependency file, map=%s, game=%s\n", map, game );
 
 	dep_count = 0;
+	pak_list = NULL;
+
+	pak_filename = NULL;
+	pak_md5 = NULL;
 
 	for( x = 1; x < r; x++) 
 	{
@@ -4405,6 +4424,10 @@ static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const 
 			if( TOKEN_STRING( buffer, tokens[x], DEPENDENCIES_KEY ) )
 			{
 				key = DEPENDENCIES_KEY;
+			} else
+			if( TOKEN_STRING( buffer, tokens[x], MD5_KEY ) )
+			{
+				key = MD5_KEY;
 			}
 		}
 
@@ -4428,18 +4451,14 @@ static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const 
 				{
 					*( buffer + tokens[x].end ) = '\0';
 					pak_filename = buffer + tokens[x].start;
-
-					if( dep_count < max_len )
-					{
-						filename_length = strlen( pak_filename );
-
-						if( filename_length > 0 && filename_length <= MAX_OSPATH )
-						{
-							pak_list[ dep_count ] = (char *)Z_Malloc( filename_length + 1 );
-							Q_strncpyz( pak_list[ dep_count ], pak_filename, filename_length + 1 );
-							dep_count++;
-						}
-					}
+				}
+			} else
+			if( strcmp( key, MD5_KEY ) == 0 )
+			{
+				if( tokens[x].type == JSMN_STRING ) 
+				{
+					*( buffer + tokens[x].end ) = '\0';
+					pak_md5 = buffer + tokens[x].start;
 				}
 			} else
 			if( strcmp( key, DEPENDENCIES_KEY ) == 0 )
@@ -4447,55 +4466,98 @@ static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const 
 				if( tokens[x].type == JSMN_ARRAY ) 
 				{
 					endarray = x + tokens[x].size;
-					x++;
-					for( ; x < endarray && x < r; x++ ) 
+					
+					for( ; x < endarray && x < r; ) 
 					{
-						key = NULL;
-						if( tokens[x].type == JSMN_STRING ) 
-						{
-							if( TOKEN_STRING( buffer, tokens[x], PK3_FILENAME_KEY ) )
-							{
-								key = PK3_FILENAME_KEY;
-							}
-						}
-						end = x + tokens[x].size;
-						for( ; x < end && x < r; x++ ) 
-						{
-							end += tokens[x].size;
-						}
-						//read the values
 						x++;
-						if( x >= r ) 
+						if( tokens[x].type != JSMN_OBJECT ) 
 						{
-							break;
-						}
-						if( key )
-						{
-							if( strcmp( key, PK3_FILENAME_KEY ) == 0 )
+							end = x + tokens[x].size;
+							for( ; x < end && x < r; x++ ) 
 							{
-								if( tokens[x].type == JSMN_STRING ) 
+								end += tokens[x].size;
+							}
+							continue;
+						}
+						dep_pak_filename = NULL;
+						dep_pak_md5 = NULL;
+
+						endobject = x + tokens[x].size;
+						x++;
+						for( ; x < endobject && x < r; x++ ) 
+						{
+
+							key = NULL;
+							if( tokens[x].type == JSMN_STRING ) 
+							{
+								if( TOKEN_STRING( buffer, tokens[x], PK3_FILENAME_KEY ) )
 								{
-									*( buffer + tokens[x].end ) = '\0';
-									pak_filename = buffer + tokens[x].start;
-
-									if( dep_count < max_len )
-									{
-										filename_length = strlen( pak_filename );
-
-										if( filename_length > 0 && filename_length <= MAX_OSPATH )
-										{
-											pak_list[ dep_count ] = (char *)Z_Malloc( filename_length + 1 );
-											Q_strncpyz( pak_list[ dep_count ], pak_filename, filename_length + 1 );
-											dep_count++;
-										}
-									}
+									key = PK3_FILENAME_KEY;
+								} else
+								if( TOKEN_STRING( buffer, tokens[x], MD5_KEY ) )
+								{
+									key = MD5_KEY;
 								}
 							}
+							end = x + tokens[x].size;
+							for( ; x < end && x < r; x++ ) 
+							{
+								end += tokens[x].size;
+							}
+							//read the values
+							x++;
+							if( x >= r ) 
+							{
+								break;
+							}
+							if( key )
+							{
+								if( strcmp( key, PK3_FILENAME_KEY ) == 0 )
+								{
+									if( tokens[x].type == JSMN_STRING ) 
+									{
+										*( buffer + tokens[x].end ) = '\0';
+										dep_pak_filename = buffer + tokens[x].start;
+									}
+								} else
+								if( strcmp( key, MD5_KEY ) == 0 )
+								{
+									if( tokens[x].type == JSMN_STRING ) 
+									{
+										*( buffer + tokens[x].end ) = '\0';
+										dep_pak_md5 = buffer + tokens[x].start;
+									}
+								}
+
+							}
+							end = x + tokens[x].size;
+							for( ; x < end && x < r; x++ ) 
+							{
+								end += tokens[x].size;
+							}
 						}
-						end = x + tokens[x].size;
-						for( ; x < end && x < r; x++ ) 
+
+						if( dep_pak_filename && dep_count < max_len )
 						{
-							end += tokens[x].size;
+							filename_length = strlen( dep_pak_filename );
+
+							if( filename_length > 0 && filename_length <= MAX_OSPATH )
+							{
+								pak_file = (pak_file_t*)Z_Malloc( sizeof( pak_file_t ) );
+								if( dep_pak_md5 )
+								{
+									pak_file->md5 = (char *)Z_Malloc( sizeof( char ) * ( 32 + 1 ) );
+									Q_strncpyz( pak_file->md5, dep_pak_md5, 32 + 1 );
+								} else
+								{
+									pak_file->md5 = NULL;
+								}
+								pak_file->next = pak_list;
+								pak_file->filename = (char *)Z_Malloc( filename_length + 1 );
+								Q_strncpyz( pak_file->filename, dep_pak_filename, filename_length + 1 );
+								pak_list = pak_file;
+								dep_count++;
+							}
 						}
 
 					}
@@ -4511,13 +4573,38 @@ static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const 
 		{
 			end += tokens[x].size;
 		}
+	}
+
+	if( pak_filename && dep_count < max_len )
+	{
+		filename_length = strlen( pak_filename );
+
+		if( filename_length > 0 && filename_length <= MAX_OSPATH )
+		{
+			pak_file = (pak_file_t*)Z_Malloc( sizeof( pak_file_t ) );
+			if( pak_md5 )
+			{
+				pak_file->md5 = (char *)Z_Malloc( sizeof( char ) * ( 32 + 1 ) );
+				Q_strncpyz( pak_file->md5, pak_md5, 32 + 1 );
+			} else
+			{
+				pak_file->md5 = NULL;
+			}
+			pak_file->next = pak_list;
+			pak_file->filename = (char *)Z_Malloc( filename_length + 1 );
+			Q_strncpyz( pak_file->filename, pak_filename, filename_length + 1 );
+			pak_list = pak_file;
+			dep_count++;
+		}
 
 	}
+
+	*pak_list_p = pak_list;
 
 	return dep_count;
 }
 
-static int FS_LoadMapDep( const char *map, char **pak_list, int max_len )
+static int FS_LoadMapDep( const char *map, pak_file_t **pak_list, int max_len )
 {
 	const char * gameName;
 	int result;
@@ -4601,6 +4688,25 @@ static int FS_LoadMapDep( const char *map, char **pak_list, int max_len )
 	}
 	return -1;
 }
+static void FS_UnloadMapDep( pak_file_t *pak_list )
+{
+	pak_file_t *pak_file;
+	char *pak_filename;
+
+	if( pak_list == NULL )
+		return;
+
+	for( pak_file = pak_list; pak_file; pak_file = pak_list )
+	{
+		pak_filename = pak_file->filename;
+
+		Z_Free( pak_filename );
+		if( pak_file->md5 )
+			Z_Free( pak_file->md5 );
+		pak_list = pak_file->next;
+		Z_Free( pak_file );
+	}
+}
 
 void FS_AutoLoadMapCmd( const char *map, char *missingPaks, int max_length, qboolean *hasmapdep )
 {
@@ -4624,22 +4730,25 @@ void FS_AutoLoadMapCmd( const char *map, char *missingPaks, int max_length, qboo
 
 	if( !( fs_autoload->integer & 0x4 ) )
 	{
-		char *pak_list[MAX_MAP_DEPENDENCY_PAK_COUNT];
+		pak_file_t *pak_list;
+		pak_file_t *pak_file;
 		int count;
-		int x;
 		char *pak_filename;
 		int result;
 		int length;
 
-		count = FS_LoadMapDep( map, pak_list, MAX_MAP_DEPENDENCY_PAK_COUNT );
+		pak_list = NULL;
+
+		count = FS_LoadMapDep( map, &pak_list, MAX_MAP_DEPENDENCY_PAK_COUNT );
 		mapdep = count >= 0? qtrue: qfalse;
 		if( hasmapdep )
 		{
 			*hasmapdep = mapdep;
 		}
-		for( x = 0; x < count; x++ )
+
+		for( pak_file = pak_list; pak_file; pak_file = pak_file->next )
 		{
-			pak_filename = pak_list[ x ];
+			pak_filename = pak_file->filename;
 
 			Com_sprintf( pk3_filename, sizeof( pk3_filename ), "%s/%s", BASEGAME, pak_filename );
 			length = strlen( pk3_filename );
@@ -4662,7 +4771,7 @@ void FS_AutoLoadMapCmd( const char *map, char *missingPaks, int max_length, qboo
 				result = FS_AutoloadAddPak( FS_ReturnFilename( pak_filename ) );
 				if( !( result > 0 ) )
 				{
-					if( missingPaks )
+					if( missingPaks && max_length > 0 )
 					{
 						Q_strcat( missingPaks, max_length, "@" );
 						Q_strcat( missingPaks, max_length, FS_ReturnFilename( pak_filename ) );
@@ -4671,8 +4780,8 @@ void FS_AutoLoadMapCmd( const char *map, char *missingPaks, int max_length, qboo
 					}
 				}
 			}
-			Z_Free( pak_filename );
 		}
+		FS_UnloadMapDep( pak_list );
 	}
 
 	if( fs_autoload->integer & 0x2 )
@@ -4806,14 +4915,20 @@ qboolean FS_CreateMapDepFilepath( char *qFilepath, int max_length, const char *m
 
 qboolean FS_CompareMapPaks( char *neededpaks, int max_length, const char *map, qboolean addMapDep )
 {
-	char *pak_list[MAX_MAP_DEPENDENCY_PAK_COUNT];
+	pak_file_t *pak_list;
+	pak_file_t *pak_file;
 	int count;
 	char downloadfile[MAX_OSPATH + 1];
+	long filesize;
+	char *pak_filename;
+	int length;
 
 	if( neededpaks == NULL || map == NULL || *map == '\0' )
 		return qfalse;
 
-	count = FS_LoadMapDep( map, pak_list, MAX_MAP_DEPENDENCY_PAK_COUNT );
+	pak_list = NULL;
+
+	count = FS_LoadMapDep( map, &pak_list, MAX_MAP_DEPENDENCY_PAK_COUNT );
 
 	if( count <= 0 )
 	{ 
@@ -4825,52 +4940,47 @@ qboolean FS_CompareMapPaks( char *neededpaks, int max_length, const char *map, q
 			//Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/autoload/mapdeps/%s.json", FS_GetCurrentGameDir(), fs_autoloadmap );
 			Com_sprintf( neededpaks, max_length, "@%s@%s", FS_ReturnFilename( downloadfile ), downloadfile ); //"@remote@local"
 		}
-	} else
+		return qtrue;
+	}
+
+	*neededpaks = '\0';
+
+	for( pak_file = pak_list; pak_file; pak_file = pak_file->next )
 	{
-		long filesize;
-		char *pak_filename;
-		int x;
-		int length;
+		pak_filename = pak_file->filename;
 
-		*neededpaks = '\0';
-
-		for( x = 0; x < count; x++ )
+		Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/%s", BASEGAME, pak_filename );
+		length = strlen( downloadfile );
+		if( length > 4 && Q_stricmp( downloadfile + length - 4, ".pk3" ) == 0 )
 		{
-			pak_filename = pak_list[ x ];
+			downloadfile[ length - 4 ] = '\0';
+		}
 
-			Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/%s", BASEGAME, pak_filename );
-			length = strlen( downloadfile );
-			if( length > 4 && Q_stricmp( downloadfile + length - 4, ".pk3" ) == 0 )
-			{
-				downloadfile[ length - 4 ] = '\0';
-			}
-
-			// never autodownload any of the id paks
-			if(FS_idPak( downloadfile, BASEGAME, NUM_ID_PAKS)
+		// never autodownload any of the id paks
+		if(FS_idPak( downloadfile, BASEGAME, NUM_ID_PAKS)
 #ifndef STANDALONE
-				|| FS_idPak( downloadfile, BASETA, NUM_TA_PAKS)
+			|| FS_idPak( downloadfile, BASETA, NUM_TA_PAKS)
 #endif
-				)
-			{
+			)
+		{
 
-			} else 
-			if( length > 4 )
-			{
-				Com_sprintf( downloadfile, sizeof( downloadfile ), "autoload/maps/%s", pak_filename );
+		} else 
+		if( length > 4 )
+		{
+			Com_sprintf( downloadfile, sizeof( downloadfile ), "autoload/maps/%s", pak_filename );
 
-				filesize = FS_FOpenFileRead( downloadfile, NULL, qfalse );
-				if( !( filesize > 0 ) )
-				{
-					Q_strcat( neededpaks, max_length, "@" );
-					Q_strcat( neededpaks, max_length, FS_ReturnFilename( downloadfile ) );
-					Q_strcat( neededpaks, max_length, "@" );
-					Q_strcat( neededpaks, max_length, downloadfile );
-					//"@remote@local"
-				}
+			filesize = FS_FOpenFileRead( downloadfile, NULL, qfalse );
+			if( !( filesize > 0 ) )
+			{
+				Q_strcat( neededpaks, max_length, "@" );
+				Q_strcat( neededpaks, max_length, FS_ReturnFilename( downloadfile ) );
+				Q_strcat( neededpaks, max_length, "@" );
+				Q_strcat( neededpaks, max_length, downloadfile );
+				//"@remote@local"
 			}
-			Z_Free( pak_filename );
 		}
 	}
+	FS_UnloadMapDep( pak_list );
 
 	return qtrue;
 }
@@ -4915,3 +5025,102 @@ qboolean FS_CompareCurrentMapDep( char *neededpaks, int max_length )
 	}
 	return qtrue;
 }
+
+int FS_PrintMapZipChecksum( const char *map, qboolean report_advanced )
+{
+	pak_file_t *pak_list;
+	pak_file_t *pak_file;
+	int count;
+	char filepath[MAX_OSPATH + 1];
+	char *pak_filename;
+	int length;
+
+	if( map == NULL || *map == '\0' )
+		return -1;
+
+	pak_list = NULL;
+
+	count = FS_LoadMapDep( map, &pak_list, MAX_MAP_DEPENDENCY_PAK_COUNT );
+
+	if( count < 0 )
+	{ 
+		Com_Printf( S_COLOR_YELLOW "Warning: Could not read map dependency file to verify checksums.\n" );
+		return -2;
+	}
+	if( count == 0 || pak_list == NULL )
+	{ 
+		return -3;
+	}
+
+	for( pak_file = pak_list; pak_file; pak_file = pak_file->next )
+	{
+		pak_filename = pak_file->filename;
+
+		Com_sprintf( filepath, sizeof( filepath ), "%s/%s", BASEGAME, pak_filename );
+		length = strlen( filepath );
+		if( length > 4 && Q_stricmp( filepath + length - 4, ".pk3" ) == 0 )
+		{
+			filepath[ length - 4 ] = '\0';
+		}
+
+		// never autodownload any of the id paks
+		if(FS_idPak( filepath, BASEGAME, NUM_ID_PAKS)
+#ifndef STANDALONE
+			|| FS_idPak( filepath, BASETA, NUM_TA_PAKS)
+#endif
+			)
+		{
+
+		} else 
+		if( length > 4 )
+		{
+			char pfilepath[MAX_OSPATH + 1]; //print
+
+			Com_sprintf( filepath, sizeof( filepath ), "%s/autoload/maps/%s", BASEGAME, pak_filename );
+			Com_sprintf( pfilepath, sizeof( pfilepath ), "autoload/maps/%s", pak_filename );
+
+			if( pak_file->md5 )
+			{
+				char *file_md5;
+
+				file_md5 = Com_MD5File( filepath, 0, NULL, 0 );
+				if( file_md5 == NULL || *file_md5 == '\0' )
+				{
+					Com_sprintf( filepath, sizeof( filepath ), "%s/autoload/maps/%s", FS_GetCurrentGameDir(), pak_filename );
+					file_md5 = Com_MD5File( filepath, 0, NULL, 0 );
+				}
+
+				if( file_md5 != NULL && *file_md5 != '\0' )
+				{
+					if( Q_stricmp( pak_file->md5, file_md5 ) != 0 )
+					{
+						Com_Printf( S_COLOR_YELLOW "Warning: Incorrect checksum for file: %s\n", pfilepath );
+						Com_DPrintf( "File checksum: %s, expected checksum: %s\n", file_md5, pak_file->md5 );
+					} else
+					{
+						if( report_advanced )
+							Com_Printf( "Valid file checksum for: %s\n", pfilepath );
+						else
+							Com_DPrintf( "Valid file checksum for: %s\n", pfilepath );
+					}
+				} else 
+				{
+					if( report_advanced )
+						Com_Printf( "Cannot create checksum, zero filesize or file not found: %s\n", pfilepath );
+					else
+						Com_DPrintf( "Cannot create checksum, zero filesize or file not found: %s\n", pfilepath );
+				}
+			} else
+			{
+				if( report_advanced )
+					Com_Printf( "No checksum available for the file: %s\n", pfilepath );
+				else
+					Com_DPrintf( "No checksum available for the file: %s\n", pfilepath );
+			}
+		}
+	}
+	FS_UnloadMapDep( pak_list );
+
+	return 1;
+}
+

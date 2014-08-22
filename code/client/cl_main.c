@@ -2071,8 +2071,10 @@ void CL_DownloadsComplete( void ) {
 		clc.cURLUsed = qfalse;
 		CL_cURL_Shutdown();
 		if( clc.cURLDisconnected ) {
+			int pure;
+
 			if( clc.downloadType == DT_DOWNLOADPK3_COMMAND 
-				&& clc.downloadType == DT_DOWNLOADMAP_COMMAND )
+				|| clc.downloadType == DT_DOWNLOADMAP_COMMAND )
 			{
 				clc.downloadRestart = qfalse;
 			} else
@@ -2081,6 +2083,18 @@ void CL_DownloadsComplete( void ) {
 				clc.downloadRestart = qfalse;
 			}
 			clc.cURLDisconnected = qfalse;
+
+			pure = Cvar_VariableIntegerValue( "sv_pure" );
+
+			if( ( pure == 0 && clc.downloadType == DT_CLIENT_CONNECT )
+				|| clc.downloadType == DT_DOWNLOADMAP_COMMAND 
+				|| clc.downloadType == DT_MAP_COMMAND )
+			{
+				int result;
+				qboolean report_advaced;
+				report_advaced = ( clc.downloadType == DT_DOWNLOADMAP_COMMAND? qtrue: qfalse );
+				result = FS_PrintMapZipChecksum( clc.downloadMap, report_advaced );
+			}
 			if( clc.downloadType == DT_DOWNLOADPK3_COMMAND 
 				|| clc.downloadType == DT_DOWNLOADMAP_COMMAND )
 			{
@@ -2221,7 +2235,6 @@ void CL_NextDownload(void)
 						Com_Error(ERR_DROP, "Incorrect checksum for file: %s", clc.downloadName);
 
 				}
-
 			}
 		} else
 #endif
