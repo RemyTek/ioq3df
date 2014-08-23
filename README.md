@@ -51,6 +51,10 @@ in_numpadbug [0/1] 	- fixes non-working numpad on Windows
 
 r_xpos, r_ypos		- game window position  
 
+Console shortcuts:
+Ctrl+Enter 		send chat message to team \team_say
+Ctrl+Shift+Enter 		send chat message to tracking player id \tell <df_mp_trackplayernum>
+
 dfengine features:  
 con_useshader [0/1]  
 con_rgb  
