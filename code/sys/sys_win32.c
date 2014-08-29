@@ -668,6 +668,8 @@ void Sys_PlatformInit( void )
 	else
 		timerResolution = 0;
 #endif
+
+	_setmaxstdio(2048); //max open files, max open pk3 files
 }
 
 /*
