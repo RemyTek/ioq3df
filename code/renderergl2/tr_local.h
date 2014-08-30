@@ -1849,6 +1849,7 @@ extern	cvar_t	*r_printShaders;
 extern cvar_t	*r_marksOnTriangleMeshes;
 
 extern cvar_t	*r_defaultImage;
+extern cvar_t	*r_map_developer;
 //====================================================================
 
 void R_SwapBuffers( int );

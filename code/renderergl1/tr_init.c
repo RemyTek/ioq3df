@@ -169,6 +169,7 @@ cvar_t	*r_maxpolyverts;
 int		max_polyverts;
 
 cvar_t	*r_defaultImage;
+cvar_t	*r_map_developer;
 
 /*
 ** InitOpenGL
@@ -1144,6 +1145,7 @@ void R_Register( void )
 	r_maxpolyverts = ri.Cvar_Get( "r_maxpolyverts", va("%d", MAX_POLYVERTS), 0);
 
 	r_defaultImage = ri.Cvar_Get( "r_defaultImage", "", CVAR_ARCHIVE );
+	r_map_developer = ri.Cvar_Get( "map_developer", "1", CVAR_ARCHIVE );
 
 	// make sure all the commands added here are also
 	// removed in R_Shutdown

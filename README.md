@@ -25,6 +25,9 @@ chatdump
 r_defaultImage to replace the default (missing texture) images  
 i.e. \seta r_defaultImage "textures\liquids\bubbles.tga"
 
+map_developer [0/1] cvar to show missing shaders, enabled by default  
+
+
 iodfe features by runaos:  
 snap hud:
 

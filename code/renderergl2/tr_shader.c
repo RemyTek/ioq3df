@@ -3337,7 +3337,12 @@ shader_t *R_FindShader( const char *name, int lightmapIndex, qboolean mipRawImag
 
 		image = R_FindImageFile( name, IMGTYPE_COLORALPHA, flags );
 		if ( !image ) {
-			ri.Printf( PRINT_DEVELOPER, "Couldn't find image file for shader %s\n", name );
+			printParm_t pp;
+			if( r_map_developer->integer )
+				pp = PRINT_WARNING;
+			else
+				pp = PRINT_DEVELOPER;
+			ri.Printf( pp, "Couldn't find image file for shader %s\n", name );
 			shader.defaultShader = qtrue;
 			return FinishShader();
 		}
