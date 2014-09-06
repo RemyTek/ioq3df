@@ -3708,6 +3708,21 @@ void CL_DownloadPk3_f( void )
 }
 #endif
 
+void CL_DownloadCheckMap_f( void )
+{
+	char map_filename[MAX_OSPATH + 1];
+
+	if( Cmd_Argc( ) != 2 )
+	{
+		Com_Printf( "Usage: downloadCheckMap <filename>\n" );
+		return;
+	}
+
+	Q_strncpyz( map_filename, Cmd_ArgsFrom( 1 ), sizeof( map_filename ) );
+
+	FS_PrintMapZipChecksum( map_filename, qtrue );
+}
+
 /*
 ====================
 CL_Init
@@ -3919,6 +3934,7 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("downloadMap", CL_DownloadMap_f );
 	Cmd_AddCommand ("downloadPk3", CL_DownloadPk3_f );
 #endif
+	Cmd_AddCommand ("downloadCheckMap", CL_DownloadCheckMap_f );
 	CL_InitRef();
 
 	SCR_Init ();

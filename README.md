@@ -11,8 +11,8 @@ cl_mapAutoDownload\_source
 fs_autoload 			[0/1]  
 New commands:  
 downloadMap <filename>  
-downloadPk3 <filename>
-
+downloadPk3 <filename>  
+downloadCheckMap <filename>	Verify checksums for pak files.  
 
 Chat console:  
 To open the chat console use ctrl+tab or bind a key to one of the new commands:  

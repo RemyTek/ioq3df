@@ -4376,7 +4376,7 @@ static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const 
 	int			r;
 	jsmn_parser p;
 	jsmntok_t	tokens[ MAX_MAP_DEPENDENCY_TOKENS ];
-	int			x, end, endarray, endobject;
+	int			x, end;
 	const char	*key;
 	static char PK3_FILENAME_KEY[] = "pk3 filename";
 	static char DEPENDENCIES_KEY[] = "dependencies";
@@ -4465,11 +4465,18 @@ static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const 
 			{
 				if( tokens[x].type == JSMN_ARRAY ) 
 				{
-					endarray = x + tokens[x].size;
-					
-					for( ; x < endarray && x < r; ) 
+					int arraysize, arrayx;
+					int objectsize, objectx;
+
+					arraysize = tokens[x].size;
+
+					for( arrayx = 0; arrayx < arraysize && x < r; arrayx++ ) 
 					{
 						x++;
+						if( x >= r ) 
+						{
+							break;
+						}
 						if( tokens[x].type != JSMN_OBJECT ) 
 						{
 							end = x + tokens[x].size;
@@ -4482,10 +4489,14 @@ static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const 
 						dep_pak_filename = NULL;
 						dep_pak_md5 = NULL;
 
-						endobject = x + tokens[x].size;
-						x++;
-						for( ; x < endobject && x < r; x++ ) 
+						objectsize = tokens[x].size;
+						for( objectx = 0; objectx < objectsize && x < r; objectx++ ) 
 						{
+							x++;
+							if( x >= r ) 
+							{
+								break;
+							}
 
 							key = NULL;
 							if( tokens[x].type == JSMN_STRING ) 
@@ -4510,6 +4521,12 @@ static int FS_LoadMapDepFromPath( const char *basepath, const char *game, const 
 							{
 								break;
 							}
+							if( !( objectx < objectsize ) )
+							{
+								break;
+							}
+							objectx++;
+
 							if( key )
 							{
 								if( strcmp( key, PK3_FILENAME_KEY ) == 0 )
@@ -4749,7 +4766,6 @@ void FS_AutoLoadMapCmd( const char *map, char *missingPaks, int max_length, qboo
 		for( pak_file = pak_list; pak_file; pak_file = pak_file->next )
 		{
 			pak_filename = pak_file->filename;
-
 			Com_sprintf( pk3_filename, sizeof( pk3_filename ), "%s/%s", BASEGAME, pak_filename );
 			length = strlen( pk3_filename );
 			if( length > 4 && Q_stricmp( pk3_filename + length - 4, ".pk3" ) == 0 )
@@ -4771,6 +4787,7 @@ void FS_AutoLoadMapCmd( const char *map, char *missingPaks, int max_length, qboo
 				result = FS_AutoloadAddPak( FS_ReturnFilename( pak_filename ) );
 				if( !( result > 0 ) )
 				{
+					Com_DPrintf( "Autoload: Missing dependency file %s\n", FS_ReturnFilename( pak_filename ) );
 					if( missingPaks && max_length > 0 )
 					{
 						Q_strcat( missingPaks, max_length, "@" );
