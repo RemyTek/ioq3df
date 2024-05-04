@@ -61,8 +61,8 @@ void AAS_SwapAASData(void)
 		aasworld.bboxes[i].flags = LittleLong(aasworld.bboxes[i].flags);
 		for (j = 0; j < 3; j++)
 		{
-			aasworld.bboxes[i].mins[j] = LittleLong(aasworld.bboxes[i].mins[j]);
-			aasworld.bboxes[i].maxs[j] = LittleLong(aasworld.bboxes[i].maxs[j]);
+			aasworld.bboxes[i].mins[j] = LittleFloat(aasworld.bboxes[i].mins[j]);
+			aasworld.bboxes[i].maxs[j] = LittleFloat(aasworld.bboxes[i].maxs[j]);
 		} //end for
 	} //end for
 	//vertexes
@@ -277,7 +277,7 @@ void AAS_FileInfo(void)
 					aasworld.reachabilitysize * sizeof(aas_reachability_t) +
 					aasworld.numportals * sizeof(aas_portal_t) +
 					aasworld.numclusters * sizeof(aas_cluster_t);
-	botimport.Print(PRT_MESSAGE, "optimzed size %d KB\n", optimized >> 10);
+	botimport.Print(PRT_MESSAGE, "optimized size %d KB\n", optimized >> 10);
 } //end of the function AAS_FileInfo
 #endif //AASFILEDEBUG
 //===========================================================================

@@ -154,7 +154,7 @@ struct vm_s {
 
 	// for dynamic linked modules
 	void		*dllHandle;
-	intptr_t			(QDECL *entryPoint)( int callNum, ... );
+	vmMainProc	entryPoint;
 	void (*destroy)(vm_t* self);
 
 	// for interpreted modules
@@ -170,6 +170,7 @@ struct vm_s {
 
 	byte		*dataBase;
 	int			dataMask;
+	int			dataAlloc;			// actually allocated
 
 	int			stackBottom;		// if programStack < stackBottom, error
 

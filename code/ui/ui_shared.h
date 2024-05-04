@@ -203,6 +203,7 @@ typedef struct multiDef_s {
 	float cvarValue[MAX_MULTI_CVARS];
 	int count;
 	qboolean strDef;
+	qboolean videoMode;
 } multiDef_t;
 
 typedef struct modelDef_s {
@@ -417,6 +418,7 @@ void Menu_Reset( void );
 qboolean Menus_AnyFullScreenVisible( void );
 void  Menus_Activate(menuDef_t *menu);
 
+int UI_SelectForKey(int key);
 displayContextDef_t *Display_GetContext( void );
 void *Display_CaptureItem(int x, int y);
 qboolean Display_MouseMove(void *p, int x, int y);

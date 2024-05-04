@@ -14,6 +14,7 @@ if [ $# == 0 ] || [ $# -gt 2 ]; then
 	echo " x86"
 	echo " x86_64"
 	echo " ppc"
+	echo " arm64"
 	echo
 	exit 1
 fi
@@ -41,12 +42,15 @@ if [ "$2" != "" ]; then
 		CURRENT_ARCH="x86_64"
 	elif [ "$2" == "ppc" ]; then
 		CURRENT_ARCH="ppc"
+	elif [ "$2" == "arm64" ]; then
+		CURRENT_ARCH="arm64"
 	else
-		echo "Invalid architecture: $1"
+		echo "Invalid architecture: $2"
 		echo "Valid architectures are:"
 		echo " x86"
 		echo " x86_64"
 		echo " ppc"
+		echo " arm64"
 		echo
 		exit 1
 	fi
@@ -78,6 +82,7 @@ function symlinkArch()
     IS32=`file "${SRCFILE}.${EXT}" | grep "i386"`
     IS64=`file "${SRCFILE}.${EXT}" | grep "x86_64"`
     ISPPC=`file "${SRCFILE}.${EXT}" | grep "ppc"`
+    ISARM=`file "${SRCFILE}.${EXT}" | grep "arm64"`
 
     if [ "${IS32}" != "" ]; then
         if [ ! -L "${DSTFILE}x86.${EXT}" ]; then
@@ -103,6 +108,14 @@ function symlinkArch()
         rm "${DSTFILE}ppc.${EXT}"
     fi
 
+    if [ "${ISARM}" != "" ]; then
+        if [ ! -L "${DSTFILE}arm64.${EXT}" ]; then
+            ln -s "${SRCFILE}.${EXT}" "${DSTFILE}arm64.${EXT}"
+        fi
+    elif [ -L "${DSTFILE}arm64.${EXT}" ]; then
+        rm "${DSTFILE}arm64.${EXT}"
+    fi
+
     popd > /dev/null
 }
 
@@ -110,6 +123,7 @@ SEARCH_ARCHS="																	\
 	x86																			\
 	x86_64																		\
 	ppc																			\
+	arm64																		\
 "
 
 HAS_LIPO=`command -v lipo`
@@ -125,6 +139,16 @@ fi
 # if the optional arch parameter is used, replace SEARCH_ARCHS to only work with one
 if [ "${CURRENT_ARCH}" != "" ]; then
 	SEARCH_ARCHS="${CURRENT_ARCH}"
+fi
+
+# select SDL run-time dylib
+if [ "${MACOSX_DEPLOYMENT_TARGET}" = "10.5" ] \
+  || [ "${MACOSX_DEPLOYMENT_TARGET}" = "10.6" ] \
+  || [ "${MACOSX_DEPLOYMENT_TARGET}" = "10.7" ] \
+  || [ "${MACOSX_DEPLOYMENT_TARGET}" = "10.8" ]; then
+  UNIVERSAL_BINARY=1
+else
+  UNIVERSAL_BINARY=2
 fi
 
 AVAILABLE_ARCHS=""
@@ -172,6 +196,7 @@ CONTENTS_FOLDER_PATH="${WRAPPER_NAME}/Contents"
 UNLOCALIZED_RESOURCES_FOLDER_PATH="${CONTENTS_FOLDER_PATH}/Resources"
 EXECUTABLE_FOLDER_PATH="${CONTENTS_FOLDER_PATH}/MacOS"
 EXECUTABLE_NAME="${PRODUCT_NAME}"
+PROTOCOL_HANDLER="quake3"
 
 # loop through the architectures to build string lists for each universal binary
 for ARCH in $SEARCH_ARCHS; do
@@ -249,7 +274,11 @@ fi
 
 # set the final application bundle output directory
 if [ "${2}" == "" ]; then
-	BUILT_PRODUCTS_DIR="${OBJROOT}/${TARGET_NAME}-darwin-universal"
+	if [ -n "${MACOSX_DEPLOYMENT_TARGET_ARM64}" ]; then
+		BUILT_PRODUCTS_DIR="${OBJROOT}/${TARGET_NAME}-darwin-universal2"
+	else
+		BUILT_PRODUCTS_DIR="${OBJROOT}/${TARGET_NAME}-darwin-universal"
+	fi
 	if [ ! -d ${BUILT_PRODUCTS_DIR} ]; then
 		mkdir -p ${BUILT_PRODUCTS_DIR} || exit 1;
 	fi
@@ -269,21 +298,27 @@ done
 echo ""
 
 # make the application bundle directories
-if [ ! -d ${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/$BASEDIR ]; then
-	mkdir -p ${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/$BASEDIR || exit 1;
+if [ ! -d "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/$BASEDIR" ]; then
+	mkdir -p "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/$BASEDIR" || exit 1;
 fi
-if [ ! -d ${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/$MISSIONPACKDIR ]; then
-	mkdir -p ${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/$MISSIONPACKDIR || exit 1;
+if [ ! -d "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/$MISSIONPACKDIR" ]; then
+	mkdir -p "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/$MISSIONPACKDIR" || exit 1;
 fi
-if [ ! -d ${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH} ]; then
-	mkdir -p ${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH} || exit 1;
+if [ ! -d "${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}" ]; then
+	mkdir -p "${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}" || exit 1;
 fi
 
 # copy and generate some application bundle resources
-cp code/libs/macosx/*.dylib ${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}
-cp ${ICNSDIR}/${ICNS} ${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/$ICNS || exit 1;
-echo -n ${PKGINFO} > ${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/PkgInfo || exit 1;
-echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+if [ $UNIVERSAL_BINARY -eq 2 ]; then
+	cp code/libs/macosx-ub2/*.dylib "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}"
+else
+	cp code/libs/macosx-ub/*.dylib "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}"
+fi
+cp ${ICNSDIR}/${ICNS} "${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/$ICNS" || exit 1;
+echo -n ${PKGINFO} > "${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/PkgInfo" || exit 1;
+
+# create Info.Plist
+PLIST="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
 <dict>
@@ -310,14 +345,69 @@ echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
     <key>CGDisableCoalescedUpdates</key>
     <true/>
     <key>LSMinimumSystemVersion</key>
-    <string>${MACOSX_DEPLOYMENT_TARGET}</string>
+    <string>${MACOSX_DEPLOYMENT_TARGET}</string>"
+
+if [ -n "${MACOSX_DEPLOYMENT_TARGET_PPC}" ] || [ -n "${MACOSX_DEPLOYMENT_TARGET_X86}" ] || [ -n "${MACOSX_DEPLOYMENT_TARGET_X86_64}" ] || [ -n "${MACOSX_DEPLOYMENT_TARGET_ARM64}" ]; then
+	PLIST="${PLIST}
+    <key>LSMinimumSystemVersionByArchitecture</key>
+    <dict>"
+
+	if [ -n "${MACOSX_DEPLOYMENT_TARGET_PPC}" ]; then
+	PLIST="${PLIST}
+        <key>ppc</key>
+        <string>${MACOSX_DEPLOYMENT_TARGET_PPC}</string>"
+	fi
+
+	if [ -n "${MACOSX_DEPLOYMENT_TARGET_X86}" ]; then
+	PLIST="${PLIST}
+        <key>i386</key>
+        <string>${MACOSX_DEPLOYMENT_TARGET_X86}</string>"
+	fi
+
+	if [ -n "${MACOSX_DEPLOYMENT_TARGET_X86_64}" ]; then
+	PLIST="${PLIST}
+        <key>x86_64</key>
+        <string>${MACOSX_DEPLOYMENT_TARGET_X86_64}</string>"
+	fi
+	
+	if [ -n "${MACOSX_DEPLOYMENT_TARGET_ARM64}" ]; then
+	PLIST="${PLIST}
+        <key>arm64</key>
+        <string>${MACOSX_DEPLOYMENT_TARGET_ARM64}</string>"
+	fi
+
+	PLIST="${PLIST}
+    </dict>"
+fi
+
+	if [ -n "${PROTOCOL_HANDLER}" ]; then
+	PLIST="${PLIST}
+    <key>CFBundleURLTypes</key>
+    <array>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>${PRODUCT_NAME}</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>${PROTOCOL_HANDLER}</string>
+        </array>
+      </dict>
+    </array>"
+	fi
+
+PLIST="${PLIST}
     <key>NSHumanReadableCopyright</key>
     <string>QUAKE III ARENA Copyright © 1999-2000 id Software, Inc. All rights reserved.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <key>NSHighResolutionCapable</key>
+    <false/>
+    <key>NSRequiresAquaSystemAppearance</key>
+    <false/>
 </dict>
 </plist>
-" > ${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Info.plist
+"
+echo -e "${PLIST}" > "${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Info.plist"
 
 # action takes care of generating universal binaries if lipo is available
 # otherwise, it falls back to using a simple copy, expecting the first item in
@@ -349,27 +439,27 @@ function action()
 #
 
 # executables
-action ${BUNDLEBINDIR}/${EXECUTABLE_NAME}				"${IOQ3_CLIENT_ARCHS}"
-action ${BUNDLEBINDIR}/${DEDICATED_NAME}				"${IOQ3_SERVER_ARCHS}"
+action "${BUNDLEBINDIR}/${EXECUTABLE_NAME}"				"${IOQ3_CLIENT_ARCHS}"
+action "${BUNDLEBINDIR}/${DEDICATED_NAME}"				"${IOQ3_SERVER_ARCHS}"
 
 # renderers
-action ${BUNDLEBINDIR}/${RENDERER_OPENGL1_NAME}		"${IOQ3_RENDERER_GL1_ARCHS}"
-action ${BUNDLEBINDIR}/${RENDERER_OPENGL2_NAME}		"${IOQ3_RENDERER_GL2_ARCHS}"
+action "${BUNDLEBINDIR}/${RENDERER_OPENGL1_NAME}"		"${IOQ3_RENDERER_GL1_ARCHS}"
+action "${BUNDLEBINDIR}/${RENDERER_OPENGL2_NAME}"		"${IOQ3_RENDERER_GL2_ARCHS}"
 symlinkArch "${RENDERER_OPENGL}1" "${RENDERER_OPENGL}1" "_" "${BUNDLEBINDIR}"
 symlinkArch "${RENDERER_OPENGL}2" "${RENDERER_OPENGL}2" "_" "${BUNDLEBINDIR}"
 
 # game
-action ${BUNDLEBINDIR}/${BASEDIR}/${CGAME_NAME}			"${IOQ3_CGAME_ARCHS}"
-action ${BUNDLEBINDIR}/${BASEDIR}/${GAME_NAME}			"${IOQ3_GAME_ARCHS}"
-action ${BUNDLEBINDIR}/${BASEDIR}/${UI_NAME}			"${IOQ3_UI_ARCHS}"
+action "${BUNDLEBINDIR}/${BASEDIR}/${CGAME_NAME}"		"${IOQ3_CGAME_ARCHS}"
+action "${BUNDLEBINDIR}/${BASEDIR}/${GAME_NAME}"		"${IOQ3_GAME_ARCHS}"
+action "${BUNDLEBINDIR}/${BASEDIR}/${UI_NAME}"			"${IOQ3_UI_ARCHS}"
 symlinkArch "${CGAME}"	"${CGAME}"	""	"${BUNDLEBINDIR}/${BASEDIR}"
 symlinkArch "${GAME}"	"${GAME}"	""	"${BUNDLEBINDIR}/${BASEDIR}"
 symlinkArch "${UI}"		"${UI}"		""	"${BUNDLEBINDIR}/${BASEDIR}"
 
 # missionpack
-action ${BUNDLEBINDIR}/${MISSIONPACKDIR}/${CGAME_NAME}	"${IOQ3_MP_CGAME_ARCHS}"
-action ${BUNDLEBINDIR}/${MISSIONPACKDIR}/${GAME_NAME}	"${IOQ3_MP_GAME_ARCHS}"
-action ${BUNDLEBINDIR}/${MISSIONPACKDIR}/${UI_NAME}		"${IOQ3_MP_UI_ARCHS}"
+action "${BUNDLEBINDIR}/${MISSIONPACKDIR}/${CGAME_NAME}"	"${IOQ3_MP_CGAME_ARCHS}"
+action "${BUNDLEBINDIR}/${MISSIONPACKDIR}/${GAME_NAME}"		"${IOQ3_MP_GAME_ARCHS}"
+action "${BUNDLEBINDIR}/${MISSIONPACKDIR}/${UI_NAME}"		"${IOQ3_MP_UI_ARCHS}"
 symlinkArch "${CGAME}"	"${CGAME}"	""	"${BUNDLEBINDIR}/${MISSIONPACKDIR}"
 symlinkArch "${GAME}"	"${GAME}"	""	"${BUNDLEBINDIR}/${MISSIONPACKDIR}"
 symlinkArch "${UI}"		"${UI}"		""	"${BUNDLEBINDIR}/${MISSIONPACKDIR}"

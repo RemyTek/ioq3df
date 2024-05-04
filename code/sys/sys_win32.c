@@ -20,6 +20,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
 
+// Use EnumProcesses() with Windows XP compatibility
+#define PSAPI_VERSION 1
+
 #include "../qcommon/q_shared.h"
 #include "../qcommon/qcommon.h"
 #include "sys_local.h"
@@ -39,8 +42,21 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <psapi.h>
 #include <float.h>
 
+#ifndef KEY_WOW64_32KEY
+#define KEY_WOW64_32KEY 0x0200
+#endif
+
 // Used to determine where to store user-specific files
 static char homePath[ MAX_OSPATH ] = { 0 };
+
+// Used to store the Steam Quake 3 installation path
+static char steamPath[ MAX_OSPATH ] = { 0 };
+
+// Used to store the GOG Quake 3 installation path
+static char gogPath[ MAX_OSPATH ] = { 0 };
+
+// Used to store the Microsoft Store Quake 3 installation path
+static char microsoftStorePath[MAX_OSPATH] = { 0 };
 
 #ifndef DEDICATED
 static UINT timerResolution = 0;
@@ -124,6 +140,137 @@ char *Sys_DefaultHomePath( void )
 
 	FreeLibrary(shfolder);
 	return homePath;
+}
+
+/*
+================
+Sys_SteamPath
+================
+*/
+char *Sys_SteamPath( void )
+{
+#if defined(STEAMPATH_NAME) || defined(STEAMPATH_APPID)
+	HKEY steamRegKey;
+	DWORD pathLen = MAX_OSPATH;
+	qboolean finishPath = qfalse;
+
+#ifdef STEAMPATH_APPID
+	// Assuming Steam is a 32-bit app
+	if (!steamPath[0] && !RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App " STEAMPATH_APPID, 0, KEY_QUERY_VALUE | KEY_WOW64_32KEY, &steamRegKey))
+	{
+		pathLen = MAX_OSPATH;
+		if (RegQueryValueEx(steamRegKey, "InstallLocation", NULL, NULL, (LPBYTE)steamPath, &pathLen))
+			steamPath[0] = '\0';
+
+		RegCloseKey(steamRegKey);
+	}
+#endif
+
+#ifdef STEAMPATH_NAME
+	if (!steamPath[0] && !RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Valve\\Steam", 0, KEY_QUERY_VALUE, &steamRegKey))
+	{
+		pathLen = MAX_OSPATH;
+		if (RegQueryValueEx(steamRegKey, "SteamPath", NULL, NULL, (LPBYTE)steamPath, &pathLen))
+			if (RegQueryValueEx(steamRegKey, "InstallPath", NULL, NULL, (LPBYTE)steamPath, &pathLen))
+				steamPath[0] = '\0';
+
+		if (steamPath[0])
+			finishPath = qtrue;
+
+		RegCloseKey(steamRegKey);
+	}
+#endif
+
+	if (steamPath[0])
+	{
+		if (pathLen == MAX_OSPATH)
+			pathLen--;
+
+		steamPath[pathLen] = '\0';
+
+		if (finishPath)
+			Q_strcat(steamPath, MAX_OSPATH, "\\SteamApps\\common\\" STEAMPATH_NAME );
+	}
+#endif
+
+	return steamPath;
+}
+
+/*
+================
+Sys_GogPath
+================
+*/
+char *Sys_GogPath( void )
+{
+#ifdef GOGPATH_ID
+	HKEY gogRegKey;
+	DWORD pathLen = MAX_OSPATH;
+
+	if (!gogPath[0] && !RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\GOG.com\\Games\\" GOGPATH_ID, 0, KEY_QUERY_VALUE | KEY_WOW64_32KEY, &gogRegKey))
+	{
+		pathLen = MAX_OSPATH;
+		if (RegQueryValueEx(gogRegKey, "PATH", NULL, NULL, (LPBYTE)gogPath, &pathLen))
+			gogPath[0] = '\0';
+
+		RegCloseKey(gogRegKey);
+	}
+
+	if (gogPath[0])
+	{
+		if (pathLen == MAX_OSPATH)
+			pathLen--;
+
+		gogPath[pathLen] = '\0';
+	}
+#endif
+
+	return gogPath;
+}
+
+/*
+================
+Sys_MicrosoftStorePath
+================
+*/
+char* Sys_MicrosoftStorePath(void)
+{
+#ifdef MSSTORE_PATH
+	if (!microsoftStorePath[0]) 
+	{
+		TCHAR szPath[MAX_PATH];
+		FARPROC qSHGetFolderPath;
+		HMODULE shfolder = LoadLibrary("shfolder.dll");
+
+		if(shfolder == NULL)
+		{
+			Com_Printf("Unable to load SHFolder.dll\n");
+			return microsoftStorePath;
+		}
+
+		qSHGetFolderPath = GetProcAddress(shfolder, "SHGetFolderPathA");
+		if(qSHGetFolderPath == NULL)
+		{
+			Com_Printf("Unable to find SHGetFolderPath in SHFolder.dll\n");
+			FreeLibrary(shfolder);
+			return microsoftStorePath;
+		}
+
+		if( !SUCCEEDED( qSHGetFolderPath( NULL, CSIDL_PROGRAM_FILES,
+						NULL, 0, szPath ) ) )
+		{
+			Com_Printf("Unable to detect CSIDL_PROGRAM_FILES\n");
+			FreeLibrary(shfolder);
+			return microsoftStorePath;
+		}
+
+		FreeLibrary(shfolder);
+
+		// default: C:\Program Files\ModifiableWindowsApps\Quake 3\EN
+		Com_sprintf(microsoftStorePath, sizeof(microsoftStorePath), "%s%cModifiableWindowsApps%c%s%cEN", szPath, PATH_SEP, PATH_SEP, MSSTORE_PATH, PATH_SEP);
+	}
+#endif
+	return microsoftStorePath;
 }
 
 /*
@@ -261,6 +408,14 @@ Sys_FOpen
 ==============
 */
 FILE *Sys_FOpen( const char *ospath, const char *mode ) {
+	size_t length;
+
+	// Windows API ignores all trailing spaces and periods which can get around Quake 3 file system restrictions.
+	length = strlen( ospath );
+	if ( length == 0 || ospath[length-1] == ' ' || ospath[length-1] == '.' ) {
+		return NULL;
+	}
+
 	return fopen( ospath, mode );
 }
 
@@ -328,6 +483,10 @@ void Sys_ListFilteredFiles( const char *basedir, char *subdirs, char *filter, ch
 	struct _finddata_t findinfo;
 
 	if ( *numfiles >= MAX_FOUND_FILES - 1 ) {
+		return;
+	}
+
+	if ( basedir[0] == '\0' ) {
 		return;
 	}
 
@@ -410,6 +569,7 @@ char **Sys_ListFiles( const char *directory, const char *extension, char *filter
 	intptr_t		findhandle;
 	int			flag;
 	int			i;
+	int			extLen;
 
 	if (filter) {
 
@@ -431,6 +591,11 @@ char **Sys_ListFiles( const char *directory, const char *extension, char *filter
 		return listCopy;
 	}
 
+	if ( directory[0] == '\0' ) {
+		*numfiles = 0;
+		return NULL;
+	}
+
 	if ( !extension) {
 		extension = "";
 	}
@@ -442,6 +607,8 @@ char **Sys_ListFiles( const char *directory, const char *extension, char *filter
 	} else {
 		flag = _A_SUBDIR;
 	}
+
+	extLen = strlen( extension );
 
 	Com_sprintf( search, sizeof(search), "%s\\*%s", directory, extension );
 
@@ -456,6 +623,14 @@ char **Sys_ListFiles( const char *directory, const char *extension, char *filter
 
 	do {
 		if ( (!wantsubs && flag ^ ( findinfo.attrib & _A_SUBDIR )) || (wantsubs && findinfo.attrib & _A_SUBDIR) ) {
+			if (*extension) {
+				if ( strlen( findinfo.name ) < extLen ||
+					Q_stricmp(
+						findinfo.name + strlen( findinfo.name ) - extLen,
+						extension ) ) {
+					continue; // didn't match
+				}
+			}
 			if ( nfiles == MAX_FOUND_FILES - 1 ) {
 				break;
 			}
@@ -736,4 +911,15 @@ qboolean Sys_PIDIsRunning( int pid )
 	}
 
 	return qfalse;
+}
+
+/*
+=================
+Sys_DllExtension
+
+Check if filename should be allowed to be loaded as a DLL.
+=================
+*/
+qboolean Sys_DllExtension( const char *name ) {
+	return COM_CompareExtension( name, DLL_EXT );
 }

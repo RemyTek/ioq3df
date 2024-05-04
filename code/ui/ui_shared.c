@@ -20,7 +20,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
 // 
-// string allocation/managment
+// string allocation/management
 
 #include "ui_shared.h"
 
@@ -198,6 +198,9 @@ const char *String_Alloc(const char *p) {
 		}
 
 		str  = UI_Alloc(sizeof(stringDef_t));
+		if (!str) {
+			return NULL;
+		}
 		str->next = NULL;
 		str->str = &strPool[ph];
 		if (last) {
@@ -609,17 +612,22 @@ void Fade(int *flags, float *f, float clamp, int *nextTime, int offsetTime, qboo
 void Window_Paint(Window *w, float fadeAmount, float fadeClamp, float fadeCycle) {
   //float bordersize = 0;
   vec4_t color = {0};
-  rectDef_t fillRect = w->rect;
+  rectDef_t fillRect;
 
+  if ( w == NULL ) {
+    return;
+  }
 
   if (debugMode) {
     color[0] = color[1] = color[2] = color[3] = 1;
     DC->drawRect(w->rect.x, w->rect.y, w->rect.w, w->rect.h, 1, color);
   }
 
-  if (w == NULL || (w->style == 0 && w->border == 0)) {
+  if (w->style == 0 && w->border == 0) {
     return;
   }
+
+  fillRect = w->rect;
 
   if (w->border != 0) {
     fillRect.x += w->borderSize;
@@ -1116,10 +1124,10 @@ void Menu_TransitionItemByName(menuDef_t *menu, const char *p, rectDef_t rectFro
       item->window.offsetTime = time;
 			memcpy(&item->window.rectClient, &rectFrom, sizeof(rectDef_t));
 			memcpy(&item->window.rectEffects, &rectTo, sizeof(rectDef_t));
-			item->window.rectEffects2.x = abs(rectTo.x - rectFrom.x) / amt;
-			item->window.rectEffects2.y = abs(rectTo.y - rectFrom.y) / amt;
-			item->window.rectEffects2.w = abs(rectTo.w - rectFrom.w) / amt;
-			item->window.rectEffects2.h = abs(rectTo.h - rectFrom.h) / amt;
+			item->window.rectEffects2.x = fabs(rectTo.x - rectFrom.x) / amt;
+			item->window.rectEffects2.y = fabs(rectTo.y - rectFrom.y) / amt;
+			item->window.rectEffects2.w = fabs(rectTo.w - rectFrom.w) / amt;
+			item->window.rectEffects2.h = fabs(rectTo.h - rectFrom.h) / amt;
       Item_UpdatePosition(item);
     }
   }
@@ -1823,6 +1831,27 @@ qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolea
 				return qtrue;
 			}
 		}
+
+		// Use mouse wheel in vertical and horizontal menus.
+		// If scrolling 3 items would replace over half of the
+		// displayed items, only scroll 1 item at a time.
+		if ( key == K_MWHEELUP ) {
+			int scroll = viewmax < 6 ? 1 : 3;
+			listPtr->startPos -= scroll;
+			if (listPtr->startPos < 0) {
+				listPtr->startPos = 0;
+			}
+			return qtrue;
+		}
+		if ( key == K_MWHEELDOWN ) {
+			int scroll = viewmax < 6 ? 1 : 3;
+			listPtr->startPos += scroll;
+			if (listPtr->startPos > max) {
+				listPtr->startPos = max;
+			}
+			return qtrue;
+		}
+
 		// mouse hit
 		if (key == K_MOUSE1 || key == K_MOUSE2) {
 			if (item->window.flags & WINDOW_LB_LEFTARROW) {
@@ -1927,12 +1956,20 @@ qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolea
 
 qboolean Item_YesNo_HandleKey(itemDef_t *item, int key) {
 
-  if (Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory) && item->window.flags & WINDOW_HASFOCUS && item->cvar) {
-		if (key == K_MOUSE1 || key == K_ENTER || key == K_MOUSE2 || key == K_MOUSE3) {
-	    DC->setCVar(item->cvar, va("%i", !DC->getCVarValue(item->cvar)));
-		  return qtrue;
+	if (item->cvar) {
+		qboolean action = qfalse;
+		if (key == K_MOUSE1 || key == K_MOUSE2 || key == K_MOUSE3) {
+			if (Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory) && item->window.flags & WINDOW_HASFOCUS) {
+				action = qtrue;
+			}
+		} else if (UI_SelectForKey(key) != 0) {
+			action = qtrue;
 		}
-  }
+		if (action) {
+			DC->setCVar(item->cvar, va("%i", !DC->getCVarValue(item->cvar)));
+			return qtrue;
+		}
+	}
 
   return qfalse;
 
@@ -2001,13 +2038,43 @@ const char *Item_Multi_Setting(itemDef_t *item) {
 qboolean Item_Multi_HandleKey(itemDef_t *item, int key) {
 	multiDef_t *multiPtr = (multiDef_t*)item->typeData;
 	if (multiPtr) {
-	  if (Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory) && item->window.flags & WINDOW_HASFOCUS && item->cvar) {
-			if (key == K_MOUSE1 || key == K_ENTER || key == K_MOUSE2 || key == K_MOUSE3) {
-				int current = Item_Multi_FindCvarByValue(item) + 1;
+		if (item->cvar) {
+			int select = 0;
+			if (key == K_MOUSE1 || key == K_MOUSE2 || key == K_MOUSE3) {
+				if (Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory) && item->window.flags & WINDOW_HASFOCUS) {
+					select = (key == K_MOUSE2) ? -1 : 1;
+				}
+			} else {
+				select = UI_SelectForKey(key);
+			}
+			if (select != 0) {
+				int current = Item_Multi_FindCvarByValue(item) + select;
 				int max = Item_Multi_CountSettings(item);
-				if ( current < 0 || current >= max ) {
+				if ( current < 0 ) {
+					current = max-1;
+				} else if ( current >= max ) {
 					current = 0;
 				}
+
+				if (multiPtr->videoMode) {
+					if (multiPtr->cvarValue[current] != -1) {
+						DC->setCVar("r_mode", va("%i", (int) multiPtr->cvarValue[current] ));
+					} else {
+						int w, h;
+						char *x;
+						char str[8];
+
+						x = strchr( multiPtr->cvarStr[current], 'x' ) + 1;
+						Q_strncpyz( str, multiPtr->cvarStr[current], MIN( x-multiPtr->cvarStr[current], sizeof( str ) ) );
+						w = atoi( str );
+						h = atoi( x );
+
+						DC->setCVar("r_mode", "-1");
+						DC->setCVar("r_customwidth", va("%i", w));
+						DC->setCVar("r_customheight", va("%i", h));
+					}
+				}
+
 				if (multiPtr->strDef) {
 					DC->setCVar(item->cvar, multiPtr->cvarStr[current]);
 				} else {
@@ -2329,10 +2396,10 @@ qboolean Item_Slider_HandleKey(itemDef_t *item, int key, qboolean down) {
 	float x, value, width, work;
 
 	//DC->Print("slider handle key\n");
-	if (item->window.flags & WINDOW_HASFOCUS && item->cvar && Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory)) {
-		if (key == K_MOUSE1 || key == K_ENTER || key == K_MOUSE2 || key == K_MOUSE3) {
+	if (item->cvar) {
+		if (key == K_MOUSE1 || key == K_MOUSE2 || key == K_MOUSE3) {
 			editFieldDef_t *editDef = item->typeData;
-			if (editDef) {
+			if (editDef && Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory) && item->window.flags & WINDOW_HASFOCUS) {
 				rectDef_t testRect;
 				width = SLIDER_WIDTH;
 				if (item->text) {
@@ -2355,6 +2422,23 @@ qboolean Item_Slider_HandleKey(itemDef_t *item, int key, qboolean down) {
 					// vm fuckage
 					// value = (((float)(DC->cursorx - x)/ SLIDER_WIDTH) * (editDef->maxVal - editDef->minVal));
 					value += editDef->minVal;
+					DC->setCVar(item->cvar, va("%f", value));
+					return qtrue;
+				}
+			}
+		} else {
+			int select = UI_SelectForKey(key);
+			if (select != 0) {
+				editFieldDef_t *editDef = item->typeData;
+				if (editDef) {
+					// 20 is number of steps
+					value = DC->getCVarValue(item->cvar) + (((editDef->maxVal - editDef->minVal)/20) * select);
+
+					if (value < editDef->minVal)
+						value = editDef->minVal;
+					else if (value > editDef->maxVal)
+						value = editDef->maxVal;
+
 					DC->setCVar(item->cvar, va("%f", value));
 					return qtrue;
 				}
@@ -2589,6 +2673,32 @@ static rectDef_t *Item_CorrectedTextRect(itemDef_t *item) {
 	return &rect;
 }
 
+// menu item key horizontal action: -1 = previous value, 1 = next value, 0 = no change
+int UI_SelectForKey(int key)
+{
+	switch (key) {
+		case K_MOUSE1:
+		case K_MOUSE3:
+		case K_ENTER:
+		case K_KP_ENTER:
+		case K_RIGHTARROW:
+		case K_KP_RIGHTARROW:
+		case K_JOY1:
+		case K_JOY2:
+		case K_JOY3:
+		case K_JOY4:
+			return 1; // next
+
+		case K_MOUSE2:
+		case K_LEFTARROW:
+		case K_KP_LEFTARROW:
+			return -1; // previous
+	}
+
+	// no change
+	return 0;
+}
+
 void Menu_HandleKey(menuDef_t *menu, int key, qboolean down) {
 	int i;
 	itemDef_t *item = NULL;
@@ -2718,7 +2828,6 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down) {
 		case K_AUX14:
 		case K_AUX15:
 		case K_AUX16:
-			break;
 		case K_KP_ENTER:
 		case K_ENTER:
 			if (item) {
@@ -3430,9 +3539,10 @@ qboolean Item_Bind_HandleKey(itemDef_t *item, int key, qboolean down) {
 	int			id;
 	int			i;
 
-	if (Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory) && !g_waitingForKey)
+	if (!g_waitingForKey)
 	{
-		if (down && (key == K_MOUSE1 || key == K_ENTER)) {
+		if (down && ((key == K_MOUSE1 && Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory))
+				|| key == K_ENTER || key == K_KP_ENTER || key == K_JOY1 || key == K_JOY2 || key == K_JOY3 || key == K_JOY4)) {
 			g_waitingForKey = qtrue;
 			g_bindItem = item;
 		}
@@ -3440,7 +3550,7 @@ qboolean Item_Bind_HandleKey(itemDef_t *item, int key, qboolean down) {
 	}
 	else
 	{
-		if (!g_waitingForKey || g_bindItem == NULL) {
+		if (g_bindItem == NULL) {
 			return qtrue;
 		}
 
@@ -3457,8 +3567,14 @@ qboolean Item_Bind_HandleKey(itemDef_t *item, int key, qboolean down) {
 			case K_BACKSPACE:
 				id = BindingIDFromName(item->cvar);
 				if (id != -1) {
-					g_bindings[id].bind1 = -1;
-					g_bindings[id].bind2 = -1;
+					if( g_bindings[id].bind1 != -1 ) {
+						DC->setBinding( g_bindings[id].bind1, "" );
+						g_bindings[id].bind1 = -1;
+					}
+					if( g_bindings[id].bind2 != -1 ) {
+						DC->setBinding( g_bindings[id].bind2, "" );
+						g_bindings[id].bind2 = -1;
+					}
 				}
 				Controls_SetConfig(qtrue);
 				g_waitingForKey = qfalse;
@@ -4300,7 +4416,7 @@ typedef struct keywordHash_s
 } keywordHash_t;
 
 int KeywordHash_Key(char *keyword) {
-	int register hash, i;
+	int hash, i;
 
 	hash = 0;
 	for (i = 0; keyword[i] != '\0'; i++) {
@@ -4907,6 +5023,7 @@ qboolean ItemParse_cvarStrList( itemDef_t *item, int handle ) {
 	multiPtr = (multiDef_t*)item->typeData;
 	multiPtr->count = 0;
 	multiPtr->strDef = qtrue;
+	multiPtr->videoMode = qfalse;
 
 	if (!trap_PC_ReadToken(handle, &token))
 		return qfalse;
@@ -4955,6 +5072,7 @@ qboolean ItemParse_cvarFloatList( itemDef_t *item, int handle ) {
 	multiPtr = (multiDef_t*)item->typeData;
 	multiPtr->count = 0;
 	multiPtr->strDef = qfalse;
+	multiPtr->videoMode = qfalse;
 
 	if (!trap_PC_ReadToken(handle, &token))
 		return qfalse;
@@ -5131,6 +5249,61 @@ void Item_SetupKeywordHash(void) {
 	}
 }
 
+static const char *builtinResolutions[ ] =
+{
+	"320x240",
+	"400x300",
+	"512x384",
+	"640x480",
+	"800x600",
+	"960x720",
+	"1024x768",
+	"1152x864",
+	"1280x1024",
+	"1600x1200",
+	"2048x1536",
+	"856x480",
+	NULL
+};
+
+static const char *knownRatios[ ][2] =
+{
+	{ "1.25:1", "5:4"   },
+	{ "1.33:1", "4:3"   },
+	{ "1.50:1", "3:2"   },
+	{ "1.56:1", "14:9"  },
+	{ "1.60:1", "16:10" },
+	{ "1.67:1", "5:3"   },
+	{ "1.78:1", "16:9"  },
+	{ NULL    , NULL    }
+};
+
+/*
+===============
+UI_ResolutionToAspect
+===============
+*/
+static void UI_ResolutionToAspect( const char *resolution, char *aspect, size_t aspectLength ) {
+	int i, w, h;
+	char *x;
+	char str[8];
+
+	// calculate resolution's aspect ratio
+	x = strchr( resolution, 'x' ) + 1;
+	Q_strncpyz( str, resolution, MIN( x-resolution, sizeof( str ) ) );
+	w = atoi( str );
+	h = atoi( x );
+	Com_sprintf( aspect, aspectLength, "%.2f:1", (float)w / (float)h );
+
+	// rename common ratios ("1.33:1" -> "4:3")
+	for( i = 0; knownRatios[i][0]; i++ ) {
+		if( !Q_stricmp( aspect, knownRatios[i][0] ) ) {
+			Q_strncpyz( aspect, knownRatios[i][1], aspectLength );
+			break;
+		}
+	}
+}
+
 /*
 ===============
 Item_ApplyHacks
@@ -5163,6 +5336,89 @@ static void Item_ApplyHacks( itemDef_t *item ) {
 			Com_Printf( "Extended player name field using cvar %s to %d characters\n", item->cvar, MAX_NAME_LENGTH );
 			editField->maxChars = MAX_NAME_LENGTH;
 		}
+	}
+
+	// Replace mode list and use a temporary ui_videomode cvar for handling custom modes
+	if ( item->type == ITEM_TYPE_MULTI && item->cvar && !Q_stricmp( item->cvar, "r_mode" ) ) {
+		multiDef_t *multiPtr = (multiDef_t*)item->typeData;
+		int i, oldCount;
+		char resbuf[MAX_STRING_CHARS];
+		char modeName[32], aspect[8];
+
+		item->cvar = "ui_videomode";
+		multiPtr->strDef = qtrue;
+		multiPtr->videoMode = qtrue;
+
+		oldCount = multiPtr->count;
+		multiPtr->count = 0;
+
+		DC->getCVarString( "r_availableModes", resbuf, sizeof( resbuf ) );
+
+		if ( *resbuf ) {
+			char *s = resbuf, *mode;
+
+			while ( s && multiPtr->count < MAX_MULTI_CVARS ) {
+				mode = s;
+
+				s = strchr(s, ' ');
+				if( s )
+					*s++ = '\0';
+
+				UI_ResolutionToAspect( mode, aspect, sizeof( aspect ) );
+				Com_sprintf( modeName, sizeof( modeName ), "%s (%s)", mode, aspect );
+
+				multiPtr->cvarList[multiPtr->count] = String_Alloc( modeName );
+
+				for ( i = 0; builtinResolutions[i]; i++ ) {
+					if( !Q_stricmp( builtinResolutions[i], mode ) ) {
+						multiPtr->cvarStr[multiPtr->count] = builtinResolutions[i];
+						multiPtr->cvarValue[multiPtr->count] = i;
+						break;
+					}
+				}
+
+				if ( builtinResolutions[i] == NULL ) {
+					multiPtr->cvarStr[multiPtr->count] = String_Alloc( mode );
+					multiPtr->cvarValue[multiPtr->count] = -1;
+				}
+
+				multiPtr->count++;
+			}
+		} else {
+			for ( i = 0; builtinResolutions[i] && multiPtr->count < MAX_MULTI_CVARS; i++ ) {
+				UI_ResolutionToAspect( builtinResolutions[i], aspect, sizeof( aspect ) );
+				Com_sprintf( modeName, sizeof( modeName ), "%s (%s)", builtinResolutions[i], aspect );
+
+				multiPtr->cvarList[multiPtr->count] = String_Alloc( modeName );
+				multiPtr->cvarStr[multiPtr->count] = builtinResolutions[i];
+				multiPtr->cvarValue[multiPtr->count] = i;
+				multiPtr->count++;
+			}
+		}
+
+		// Add custom resolution if not in mode list
+		if ( multiPtr->count < MAX_MULTI_CVARS ) {
+			char currentResolution[20];
+
+			Com_sprintf( currentResolution, sizeof ( currentResolution ), "%dx%d", DC->glconfig.vidWidth, DC->glconfig.vidHeight );
+			for ( i = 0; i < multiPtr->count; i++ ) {
+				if ( !Q_stricmp( multiPtr->cvarStr[i], currentResolution ) ) {
+					break;
+				}
+			}
+
+			if ( i == multiPtr->count ) {
+				UI_ResolutionToAspect( currentResolution, aspect, sizeof( aspect ) );
+				Com_sprintf( modeName, sizeof( modeName ), "%s (%s)", currentResolution, aspect );
+
+				multiPtr->cvarList[multiPtr->count] = String_Alloc( modeName );
+				multiPtr->cvarStr[multiPtr->count] = String_Alloc( currentResolution );
+				multiPtr->cvarValue[multiPtr->count] = -1;
+				multiPtr->count++;
+			}
+		}
+
+		Com_Printf( "Found video mode list with %d modes, replaced list with %d modes\n", oldCount, multiPtr->count );
 	}
 
 }
