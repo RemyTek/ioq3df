@@ -22,8 +22,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "server.h"
 
-char				sv_remapArgs[MAX_OSPATH];
-
 /*
 ===============================================================================
 
@@ -164,22 +162,18 @@ static void SV_Map_f( void ) {
 		return;
 	}
 
-	cmd = Cmd_Argv(0);
-
 	// make sure the level exists before trying to change, so that
 	// a typo at the server console won't end the game
 	Com_sprintf (expanded, sizeof(expanded), "maps/%s.bsp", map);
 	if ( FS_ReadFile (expanded, NULL) == -1 ) {
-		FS_AutoLoadMap( map );
-		if ( FS_ReadFile (expanded, NULL) == -1 ) {
-			Com_Printf ("Can't find map %s\n", expanded);
-			return;
-		}
+		Com_Printf ("Can't find map %s\n", expanded);
+		return;
 	}
 
 	// force latched values to get set
 	Cvar_Get ("g_gametype", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH );
 
+	cmd = Cmd_Argv(0);
 	if( Q_stricmpn( cmd, "sp", 2 ) == 0 ) {
 		Cvar_SetValue( "g_gametype", GT_SINGLE_PLAYER );
 		Cvar_SetValue( "g_doWarmup", 0 );
@@ -210,11 +204,6 @@ static void SV_Map_f( void ) {
 	// and thus nuke the arguments of the map command
 	Q_strncpyz(mapname, map, sizeof(mapname));
 
-	if( Q_stricmp( cmd, "devmap" ) != 0 ) 
-	{
-		// save arguments for remap
-		Q_strncpyz( sv_remapArgs, Cmd_Args(), sizeof( sv_remapArgs ) );
-	}
 	// start up the map
 	SV_SpawnServer( mapname, killBots );
 
@@ -227,25 +216,6 @@ static void SV_Map_f( void ) {
 	} else {
 		Cvar_Set( "sv_cheats", "0" );
 	}
-}
-
-/*
-==================
-SV_ReMap_f
-
-Restart the server on a map
-==================
-*/
-static void SV_ReMap_f( void ) 
-{
-	if( !strlen( sv_remapArgs ) )
-		return;
-	if ( com_sv_running->integer ) {
-		// if running a local server, kill it
-		SV_Shutdown( "Server quit (remap)" );
-	}
-
-	Cbuf_AddText( va( "map %s\n", sv_remapArgs ) );
 }
 
 /*
@@ -1501,7 +1471,7 @@ SV_CompleteMapName
 */
 static void SV_CompleteMapName( char *args, int argNum ) {
 	if( argNum == 2 ) {
-		Field_CompleteMapFilename( "maps", "bsp", qtrue, qfalse );
+		Field_CompleteFilename( "maps", "bsp", qtrue, qfalse );
 	}
 }
 
@@ -1576,7 +1546,6 @@ void SV_AddOperatorCommands( void ) {
 	Cmd_AddCommand ("sectorlist", SV_SectorList_f);
 	Cmd_AddCommand ("map", SV_Map_f);
 	Cmd_SetCommandCompletionFunc( "map", SV_CompleteMapName );
-	Cmd_AddCommand ("remap", SV_ReMap_f);
 #ifndef PRE_RELEASE_DEMO
 	Cmd_AddCommand ("devmap", SV_Map_f);
 	Cmd_SetCommandCompletionFunc( "devmap", SV_CompleteMapName );

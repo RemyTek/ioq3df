@@ -249,18 +249,6 @@ void CL_ConfigstringModified( void ) {
 }
 
 
-void CL_RemoveChatEscapeChar( char *text ) {
-	int i, l;
-
-	l = 0;
-	for ( i = 0; text[i]; i++ ) {
-		if (text[i] == '\x19')
-			continue;
-		text[l++] = text[i];
-	}
-	text[l] = '\0';
-}
-
 /*
 ===================
 CL_GetServerCommand
@@ -272,7 +260,6 @@ qboolean CL_GetServerCommand( int serverCommandNumber ) {
 	char	*s;
 	char	*cmd;
 	static char bigConfigString[BIG_INFO_STRING];
-	static char text[MAX_SAY_TEXT+1]; //plus newline
 	int argc;
 
 	// if we have irretrievably lost a reliable command, drop the connection
@@ -371,25 +358,6 @@ rescan:
 	}
 
 	// we may want to put a "connect to other server" command here
-
-	if ( !strcmp( cmd, "chat" ) ) {
-		if ( !cg_teamChatsOnly->integer ) {
-			Q_strncpyz( text, Cmd_Argv(1), MAX_SAY_TEXT );
-			CL_RemoveChatEscapeChar( text );
-			strcat( text, "\n" );
-			CL_ChatConsolePrint( text );
-		}
-		return qtrue;
-	}
-
-	if ( !strcmp( cmd, "tchat" ) ) {
-		Q_strncpyz( text, Cmd_Argv(1), MAX_SAY_TEXT );
-		CL_RemoveChatEscapeChar( text );
-		strcat( text, "\n" );
-		CL_ChatConsolePrint( text );
-		return qtrue;
-	}
-
 
 	// cgame can now act on the command
 	return qtrue;

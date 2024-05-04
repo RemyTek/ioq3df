@@ -44,24 +44,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #define	RETRANSMIT_TIMEOUT	3000	// time between connection packet retransmits
 
-//iodfe snap hud
-#define SNAPHUD_MAXZONES		128
-
-typedef enum {
-	DT_CLIENT_CONNECT,
-	DT_DOWNLOADMAP_COMMAND,
-	DT_DOWNLOADPK3_COMMAND,
-	DT_MAP_COMMAND
-} downloadtype_t;
-
-typedef struct {
-	int			speed;
-	float		zones[SNAPHUD_MAXZONES];
-	int			count;
-	vec2_t		m;
-	qboolean	promode;
-} snappingHud_t;
-
 // snapshots are a view of the server at a given time
 typedef struct {
 	qboolean		valid;			// cleared if delta parsing was invalid
@@ -107,7 +89,6 @@ typedef struct {
 #define	MAX_PARSE_ENTITIES	( PACKET_BACKUP * MAX_SNAPSHOT_ENTITIES )
 
 extern int g_console_field_width;
-extern int g_chatconsole_field_width;
 
 typedef struct {
 	int			timeoutcount;		// it requres several frames in a timeout condition
@@ -151,8 +132,6 @@ typedef struct {
 	// tracked view angles to account for standing on rotating objects,
 	// and teleport direction changes
 	vec3_t		viewangles;
-
-	snappingHud_t	snappinghud;
 
 	int			serverId;			// included in each client message so the server
 												// can tell if it is for a prior map_restart
@@ -219,12 +198,7 @@ typedef struct {
 	fileHandle_t download;
 	char		downloadTempName[MAX_OSPATH];
 	char		downloadName[MAX_OSPATH];
-	qboolean	downloadMandatory;
-	downloadtype_t downloadType;
 #ifdef USE_CURL
-	connstate_t downloadPreState;
-	char		downloadMap[MAX_QPATH];
-	char		downloadHTTPRepsonse[MAX_STRING_CHARS];
 	qboolean	cURLEnabled;
 	qboolean	cURLUsed;
 	qboolean	cURLDisconnected;
@@ -294,9 +268,6 @@ typedef struct {
 
 	// big stuff at end of structure so most offsets are 15 bits or less
 	netchan_t	netchan;
-
-	char downloadMotd[128]; //128 by dfengine
-
 } clientConnection_t;
 
 extern	clientConnection_t clc;
@@ -565,25 +536,6 @@ void	CL_Ping_f( void );
 qboolean CL_UpdateVisiblePings_f( int source );
 
 
-extern cvar_t *cg_teamChatsOnly;
-//
-// chat console
-//
-void ChatCon_CheckResize (void);
-void ChatCon_Init(void);
-void ChatCon_Shutdown(void);
-void ChatCon_Clear_f (void);
-void ChatCon_ToggleConsole_f (void);
-void ChatCon_RunConsole (void);
-void ChatCon_DrawConsole (void);
-void ChatCon_PageUp( void );
-void ChatCon_PageDown( void );
-void ChatCon_Top( void );
-void ChatCon_Bottom( void );
-void ChatCon_Close( void );
-void ChatCon_CopyUrl( void );
-
-void Cmd_CompleteTxtName( char *args, int argNum );
 //
 // console
 //
@@ -620,8 +572,6 @@ int		SCR_GetBigStringWidth( const char *str );	// returns in virtual 640x480 coo
 void	SCR_AdjustFrom640( float *x, float *y, float *w, float *h );
 void	SCR_FillRect( float x, float y, float width, float height, 
 					 const float *color );
-void	SCR_FillAngleYaw( float start, float end, float viewangle, float y, float height, const float *color );
-void	SCR_MarkAnglePitch( float angle, float height, float viewangle, float x, float width, const float *color );
 void	SCR_DrawPic( float x, float y, float width, float height, qhandle_t hShader );
 void	SCR_DrawNamedPic( float x, float y, float width, float height, const char *picname );
 
@@ -630,13 +580,6 @@ void	SCR_DrawBigStringColor( int x, int y, const char *s, vec4_t color, qboolean
 void	SCR_DrawSmallStringExt( int x, int y, const char *string, float *setColor, qboolean forceColor, qboolean noColorEscape );
 void	SCR_DrawSmallChar( int x, int y, int ch );
 
-
-//
-// cl_hud_snap.c
-//
-
-void	HUD_Init (void);
-void	HUD_Draw (void);
 
 //
 // cl_cin.c

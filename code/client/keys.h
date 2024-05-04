@@ -40,7 +40,6 @@ void Field_BigDraw( field_t *edit, int x, int y, int width, qboolean showCursor,
 extern	field_t	historyEditLines[COMMAND_HISTORY];
 
 extern	field_t	g_consoleField;
-extern	field_t	g_chatconsoleField;
 extern	field_t	chatField;
 extern	int				anykeydown;
 extern	qboolean	chat_team;

@@ -103,41 +103,6 @@ void SCR_FillRect( float x, float y, float width, float height, const float *col
 
 /*
 ================
-SCR_FillAngle, SCR_MarkAngle
-=================
-*/
-void SCR_FillAngleYaw( float start, float end, float viewangle, float y, float height, const float *color ) {
-	float x, width, fovscale;
-	vec2_t fov;
-	re.getcgamefov( &fov );
-	fovscale=tan(DEG2RAD(fov[0]/2));
-	x = SCREEN_WIDTH/2+tan(DEG2RAD(viewangle+start))/fovscale*SCREEN_WIDTH/2;
-	width = abs(SCREEN_WIDTH*(tan(DEG2RAD(viewangle+end))-tan(DEG2RAD(viewangle+start)))/(fovscale*2))+1;	
-
-	re.SetColor( color );
-	SCR_AdjustFrom640( &x, &y, &width, &height );
-	re.DrawStretchPic( x, y, width, height, 0, 0, 0, 0, cls.whiteShader );
-	re.SetColor( NULL );
-}
-
-void SCR_MarkAnglePitch( float angle, float height, float viewangle, float x, float width, const float *color ) {
-	float y, fovscale;
-
-	vec2_t fov;
-	re.getcgamefov( &fov );
-
-	if (-cl.snap.ps.viewangles[PITCH]+angle > fov[1]/2+5) return;
-	fovscale=tan(DEG2RAD(fov[1]/2));
-	y = SCREEN_HEIGHT/2+tan(DEG2RAD(viewangle+angle))/fovscale*SCREEN_HEIGHT/2;
-
-	re.SetColor( color );
-	SCR_AdjustFrom640( &x, &y, &width, &height );
-	re.DrawStretchPic( x-width/2, y-height/2, width, height, 0, 0, 0, 0, cls.whiteShader );
-	re.SetColor( NULL );
-}
-
-/*
-================
 SCR_DrawPic
 
 Coordinates are 640*480 virtual values
@@ -562,7 +527,6 @@ void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
 			// always supply STEREO_CENTER as vieworg offset is now done by the engine.
 			CL_CGameRendering(stereoFrame);
 			SCR_DrawDemoRecording();
-			HUD_Draw (); //iodfe snap hud
 #ifdef USE_VOIP
 			SCR_DrawVoipMeter();
 #endif
@@ -575,7 +539,6 @@ void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
 		VM_Call( uivm, UI_REFRESH, cls.realtime );
 	}
 
-	ChatCon_DrawConsole ();
 	// console draws next
 	Con_DrawConsole ();
 

@@ -55,17 +55,6 @@ typedef struct {
 
 console_t	con;
 
-//iodfe
-cvar_t		*con_timestamp;
-cvar_t		*con_timedisplay;
-cvar_t		*con_drawversion;
-
-// Cgg
-cvar_t		*con_useshader;
-cvar_t		*con_opacity;
-cvar_t		*con_rgb;
-cvar_t		*con_height;
-
 cvar_t		*con_conspeed;
 cvar_t		*con_autoclear;
 cvar_t		*con_notifytime;
@@ -84,8 +73,11 @@ void Con_ToggleConsole_f (void) {
 		return;
 	}
 
-	Field_Clear( &g_consoleField );
-	g_consoleField.widthInChars = g_console_field_width - (con_timedisplay->integer ? 9 : 0);
+	if ( con_autoclear->integer ) {
+		Field_Clear( &g_consoleField );
+	}
+
+	g_consoleField.widthInChars = g_console_field_width;
 
 	Con_ClearNotify ();
 	Key_SetCatcher( Key_GetCatcher( ) ^ KEYCATCH_CONSOLE );
@@ -364,17 +356,6 @@ Con_Init
 void Con_Init (void) {
 	int		i;
 
-	//iodfe
-	con_timestamp = Cvar_Get ("con_timestamp", "1", CVAR_ARCHIVE);
-	con_timedisplay = Cvar_Get ("con_timedisplay", "3", CVAR_ARCHIVE);
-	con_drawversion = Cvar_Get ("con_drawversion", "1", CVAR_ARCHIVE);
-	// Cgg
-	con_useshader = Cvar_Get("con_useshader", "1", CVAR_ARCHIVE);
-	con_opacity = Cvar_Get("con_opacity", "0.95", CVAR_ARCHIVE);
-	con_rgb = Cvar_Get("con_rgb", ".05 .05 .1", CVAR_ARCHIVE);
-	// !Cgg
-	con_height = Cvar_Get("con_height", ".5", CVAR_ARCHIVE);
-
 	con_notifytime = Cvar_Get ("con_notifytime", "3", 0);
 	con_conspeed = Cvar_Get ("scr_conspeed", "3", 0);
 	con_autoclear = Cvar_Get("con_autoclear", "1", CVAR_ARCHIVE);
@@ -456,18 +437,6 @@ void CL_ConsolePrint( char *txt ) {
 	unsigned short	color;
 	qboolean skipnotify = qfalse;		// NERVE - SMF
 	int prev;							// NERVE - SMF
-
-	//iodfe
-	if (con.x==0 && con_timestamp && con_timestamp->integer) {
-		char txtt[MAXPRINTMSG];
-		qtime_t	now;
-		Com_RealTime( &now );
-//		if( con_timestamp->integer == 2 )
-//			Com_sprintf(txtt,sizeof(txtt),"^9%02d:%02d ^7%s",now.tm_hour,now.tm_min,txt);
-//		else
-			Com_sprintf(txtt,sizeof(txtt),"^9%02d:%02d:%02d ^7%s",now.tm_hour,now.tm_min,now.tm_sec,txt);
-		strcpy(txt,txtt);
-	}
 
 	// TTimo - prefix for text that shows up in console but not in notify
 	// backported from RTCW
@@ -569,7 +538,6 @@ Draw the editline after a ] prompt
 */
 void Con_DrawInput (void) {
 	int		y;
-	int		x = 0;
 
 	if ( clc.state != CA_DISCONNECTED && !(Key_GetCatcher( ) & KEYCATCH_CONSOLE ) ) {
 		return;
@@ -577,26 +545,11 @@ void Con_DrawInput (void) {
 
 	y = con.vislines - ( SMALLCHAR_HEIGHT * 2 );
 
-	if (con_timedisplay->integer & 1) {
-		char ts[9];
-		int i;
-		
-		qtime_t	now;
-		Com_RealTime( &now );
-		Com_sprintf(ts,sizeof(ts),"%02d:%02d:%02d",now.tm_hour,now.tm_min,now.tm_sec);
-		
-		re.SetColor( g_color_table[ColorIndex(COLOR_RED)] );
-		for (i = 0 ; i<8 ; i++) {
-			SCR_DrawSmallChar( con.xadjust + (i+1) * SMALLCHAR_WIDTH, y, ts[i] );
-		}
-		x = 9;
-	}
-
 	re.SetColor( con.color );
 
-	SCR_DrawSmallChar( con.xadjust + (x+1) * SMALLCHAR_WIDTH, y, ']' );
+	SCR_DrawSmallChar( con.xadjust + 1 * SMALLCHAR_WIDTH, y, ']' );
 
-	Field_Draw( &g_consoleField, con.xadjust + (x+2) * SMALLCHAR_WIDTH, y,
+	Field_Draw( &g_consoleField, con.xadjust + 2 * SMALLCHAR_WIDTH, y,
 		SCREEN_WIDTH - 3 * SMALLCHAR_WIDTH, qtrue, qtrue );
 }
 
@@ -637,7 +590,7 @@ void Con_DrawNotify (void)
 			continue;
 		}
 
-		for (x = con_timestamp->integer ? 9 : 0 ; x < con.linewidth ; x++) {
+		for (x = 0 ; x < con.linewidth ; x++) {
 			if ( ( text[x] & 0xff ) == ' ' ) {
 				continue;
 			}
@@ -645,7 +598,7 @@ void Con_DrawNotify (void)
 				currentColor = ColorIndexForNumber( text[x]>>8 );
 				re.SetColor( g_color_table[currentColor] );
 			}
-			SCR_DrawSmallChar( cl_conXOffset->integer + con.xadjust + (x+1-(con_timestamp->integer ? 9 : 0))*SMALLCHAR_WIDTH, v, text[x] & 0xff );
+			SCR_DrawSmallChar( cl_conXOffset->integer + con.xadjust + (x+1)*SMALLCHAR_WIDTH, v, text[x] & 0xff );
 		}
 
 		v += SMALLCHAR_HEIGHT;
@@ -711,19 +664,7 @@ void Con_DrawSolidConsole( float frac ) {
 		y = 0;
 	}
 	else {
-		// Cgg
-		if (con_useshader->integer) {
-			SCR_DrawPic( 0, 0, SCREEN_WIDTH, y, cls.consoleShader );
-		} else {
-			vec4_t color;
-			char *c = con_rgb->string;
-			color[0] = atof(COM_Parse(&c));
-			color[1] = atof(COM_Parse(&c));
-			color[2] = atof(COM_Parse(&c));
-			color[3] = con_opacity->value;
-			SCR_FillRect( 0, 0, SCREEN_WIDTH, y, color );
-		}
-		// !Cgg
+		SCR_DrawPic( 0, 0, SCREEN_WIDTH, y, cls.consoleShader );
 	}
 
 	color[0] = 1;
@@ -737,28 +678,13 @@ void Con_DrawSolidConsole( float frac ) {
 
 	re.SetColor( g_color_table[ColorIndex(COLOR_RED)] );
 
-	if (con_drawversion->integer) {
-		i = strlen( Q3_VERSION );
+	i = strlen( Q3_VERSION );
 
-		for (x=0 ; x<i ; x++) {
-			SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x + 1 ) * SMALLCHAR_WIDTH, 
-				(lines-(SMALLCHAR_HEIGHT+SMALLCHAR_HEIGHT/2)), Q3_VERSION[x] );
-		}
+	for (x=0 ; x<i ; x++) {
+		SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x + 1 ) * SMALLCHAR_WIDTH,
+			lines - SMALLCHAR_HEIGHT, Q3_VERSION[x] );
 	}
 
-	if (con_timedisplay->integer & 2) {
-		char ts[30];
-		qtime_t	now;
-
-		Com_RealTime( &now );
-		Com_sprintf(ts,sizeof(ts),"%02d:%02d:%02d %04d-%02d-%02d",now.tm_hour,now.tm_min,now.tm_sec,1900 + now.tm_year,1 + now.tm_mon,now.tm_mday);
-		i = strlen( ts );
-
-		for (x = 0 ; x<i ; x++) {
-			SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x ) * SMALLCHAR_WIDTH, 
-				lines - (SMALLCHAR_HEIGHT * (con_drawversion->integer ? 2 : 1) + SMALLCHAR_HEIGHT/2), ts[x]);
-		}
-	}
 
 	// draw the text
 	con.vislines = lines;
@@ -857,14 +783,8 @@ Scroll it up or down
 void Con_RunConsole (void) {
 	// decide on the destination height of the console
 	if ( Key_GetCatcher( ) & KEYCATCH_CONSOLE )
-	{
-		float frac = con_height->value;
-		if( frac > 1.0f )
-			frac = 1.0f;
-		else if( frac < 0.05f )
-			frac = 0.05f;
-		con.finalFrac = frac;
-	} else
+		con.finalFrac = 0.5;		// half screen
+	else
 		con.finalFrac = 0;				// none visible
 	
 	// scroll towards the destination height
@@ -920,7 +840,4 @@ void Con_Close( void ) {
 	Key_SetCatcher( Key_GetCatcher( ) & ~KEYCATCH_CONSOLE );
 	con.finalFrac = 0;				// none visible
 	con.displayFrac = 0;
-
-	ChatCon_Close();
 }
-

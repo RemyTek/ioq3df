@@ -109,10 +109,6 @@ cvar_t	*cl_activeAction;
 cvar_t	*cl_motdString;
 
 cvar_t	*cl_allowDownload;
-#ifdef USE_CURL
-cvar_t	*cl_mapAutoDownload;
-cvar_t	*cl_mapAutoDownload_source;
-#endif
 cvar_t	*cl_conXOffset;
 cvar_t	*cl_inGameVideo;
 
@@ -123,8 +119,6 @@ cvar_t	*cl_lanForcePackets;
 cvar_t	*cl_guidServerUniq;
 
 cvar_t	*cl_consoleKeys;
-
-cvar_t	*cg_teamChatsOnly;
 
 cvar_t	*cl_rate;
 
@@ -2094,47 +2088,17 @@ Called when all downloading has been completed
 */
 void CL_DownloadsComplete( void ) {
 
-	if( clc.downloadMotd[0] != '\0' )
-	{
-		Com_Printf( "Download MOTD: %s\n", clc.downloadMotd );
-	}
-
 #ifdef USE_CURL
 	// if we downloaded with cURL
 	if(clc.cURLUsed) { 
 		clc.cURLUsed = qfalse;
 		CL_cURL_Shutdown();
 		if( clc.cURLDisconnected ) {
-			int pure;
-
-			if( clc.downloadType == DT_DOWNLOADPK3_COMMAND 
-				|| clc.downloadType == DT_DOWNLOADMAP_COMMAND )
-			{
-				clc.downloadRestart = qfalse;
-			} else
 			if(clc.downloadRestart) {
 				FS_Restart(clc.checksumFeed);
 				clc.downloadRestart = qfalse;
 			}
 			clc.cURLDisconnected = qfalse;
-
-			pure = Cvar_VariableIntegerValue( "sv_pure" );
-
-			if( ( pure == 0 && clc.downloadType == DT_CLIENT_CONNECT )
-				|| clc.downloadType == DT_DOWNLOADMAP_COMMAND 
-				|| clc.downloadType == DT_MAP_COMMAND )
-			{
-				int result;
-				qboolean report_advaced;
-				report_advaced = ( clc.downloadType == DT_DOWNLOADMAP_COMMAND? qtrue: qfalse );
-				result = FS_PrintMapZipChecksum( clc.downloadMap, report_advaced );
-			}
-			if( clc.downloadType == DT_DOWNLOADPK3_COMMAND 
-				|| clc.downloadType == DT_DOWNLOADMAP_COMMAND )
-			{
-				Com_Printf( "Downloaded map file(s).\n" );
-				clc.state = clc.downloadPreState;
-			} else
 			CL_Reconnect_f();
 			return;
 		}
@@ -2237,48 +2201,12 @@ void CL_NextDownload(void)
 		char *zippath = FS_BuildOSPath(Cvar_VariableString("fs_homepath"), clc.downloadName, "");
 		zippath[strlen(zippath)-1] = '\0';
 
-#ifdef USE_CURL
-		if( ( cl_mapAutoDownload->integer > 0 && clc.downloadType == DT_CLIENT_CONNECT ) 
-			|| clc.downloadType == DT_DOWNLOADMAP_COMMAND 
-			|| clc.downloadType == DT_DOWNLOADPK3_COMMAND 
-			|| clc.downloadType == DT_MAP_COMMAND )
-		{
-			int pure;
-			pure = Cvar_VariableIntegerValue( "sv_pure" );
-
-			if( Com_FilterPath( "*/autoload/mapdeps/*.json", clc.downloadName, qfalse ) )
-			{
-				int length;
-
-				if( ( pure == 0 && clc.downloadType == DT_CLIENT_CONNECT )
-					|| clc.downloadType == DT_DOWNLOADMAP_COMMAND 
-					|| clc.downloadType == DT_MAP_COMMAND )
-				{
-					length = strlen( clc.downloadList );
-					FS_CompareMapPaks( clc.downloadList + length, sizeof( clc.downloadList ) - length, clc.downloadMap, qfalse );
-				}
-			} else
-			{
-				if( pure == 1
-					 && !( clc.downloadType == DT_DOWNLOADMAP_COMMAND 
-						|| clc.downloadType == DT_DOWNLOADPK3_COMMAND 
-						|| clc.downloadType == DT_MAP_COMMAND ) )
-
-				{
-					if(!FS_CompareZipChecksum(zippath))
-						Com_Error(ERR_DROP, "Incorrect checksum for file: %s", clc.downloadName);
-
-				}
-			}
-		} else
-#endif
 		if(!FS_CompareZipChecksum(zippath))
 			Com_Error(ERR_DROP, "Incorrect checksum for file: %s", clc.downloadName);
 	}
 
 	*clc.downloadTempName = *clc.downloadName = 0;
 	Cvar_Set("cl_downloadName", "");
-	clc.downloadMandatory = qtrue;
 
 	// We are looking to start a download here
 	if (*clc.downloadList) {
@@ -2303,65 +2231,6 @@ void CL_NextDownload(void)
 		else
 			s = localName + strlen(localName); // point at the nul byte
 #ifdef USE_CURL
-		if( ( cl_mapAutoDownload->integer > 0 && clc.downloadType == DT_CLIENT_CONNECT ) 
-			|| clc.downloadType == DT_DOWNLOADMAP_COMMAND 
-			|| clc.downloadType == DT_DOWNLOADPK3_COMMAND 
-			|| clc.downloadType == DT_MAP_COMMAND )
-		{
-			if( !*cl_mapAutoDownload_source->string ) 
-			{
-				Com_Printf("WARNING: Auto download enabled (cl_mapAutoDownload) "
-					"but source URL (cl_mapAutoDownload_source) is not set.\n");
-			} else 
-			if( !CL_cURL_Init() ) 
-			{
-				Com_Printf("WARNING: could not load "
-					"cURL library\n");
-			} else
-			{
-				char autoloadfile[MAX_OSPATH + 1];
-				const char *extraSep;
-				int len;
-				len = strlen( cl_mapAutoDownload_source->string );
-
-				if( len > 0 && 
-					( cl_mapAutoDownload_source->string[ len - 1 ] == '/'
-					|| cl_mapAutoDownload_source->string[ len - 1 ] == '\\'
-					|| cl_mapAutoDownload_source->string[ len - 1 ] == '='
-					|| cl_mapAutoDownload_source->string[ len - 1 ] == '-' ) )
-				{
-					extraSep = "";
-				} else
-				{
-					extraSep = "/";
-				}
-				if( Com_FilterPath( "*/autoload/mapdeps/*.json", localName, qfalse ) )
-				{
-					int pure;
-
-					Q_strncpyz( autoloadfile, localName, sizeof( autoloadfile ) );
-
-					pure = Cvar_VariableIntegerValue( "sv_pure" );
-					if( pure > 0 && clc.downloadType == DT_CLIENT_CONNECT )
-					{
-						//map dependency file isn't mandatory to run a map
-						clc.downloadMandatory = qfalse;
-					}
-				} else
-				{
-					if( fs_autoload->integer > 0 )
-					{
-						Com_sprintf( autoloadfile, sizeof( autoloadfile ), "%s/autoload/maps/%s", BASEGAME, FS_ReturnFilename( localName ) );
-					} else
-					{
-						Q_strncpyz( autoloadfile, localName, sizeof( autoloadfile ) );
-					}
-				}
-				CL_cURL_BeginDownload( autoloadfile, va( "%s%s%s",
-						cl_mapAutoDownload_source->string, extraSep, remoteName ) );
-				useCURL = qtrue;
-			}
-		} else
 		if(!(cl_allowDownload->integer & DLF_NO_REDIRECT)) {
 			if(clc.sv_allowDownload & DLF_NO_REDIRECT) {
 				Com_Printf("WARNING: server does not "
@@ -2425,55 +2294,6 @@ and determine if we need to download them
 void CL_InitDownloads(void) {
   char missingfiles[1024];
 
-#ifdef USE_CURL
-	if( cl_mapAutoDownload->integer > 0 )
-	{
-		int length;
-		int pure;
-
-		if( fs_autoload->integer > 0 )
-		{
-			//always want the map dependency file locally for auto loading
-			if( FS_CompareCurrentMapDep( clc.downloadList, sizeof( clc.downloadList ) ) )
-			{
-				length = strlen( clc.downloadList );
-			} else
-			{
-				length = 0;
-			}
-		} else
-		{
-			length = 0;
-		}
-		pure = Cvar_VariableIntegerValue( "sv_pure" );
-
-		//currently unpure defrag servers return wrong pak filenames
-		if( com_sv_running && com_sv_running->integer <= 0 &&
-			( ( pure > 0 && FS_ComparePaks( clc.downloadList + length, sizeof( clc.downloadList ) - length, qtrue ) ) 
-				|| length > 0
-				|| ( ( pure == 0 )
-					&& FS_autoloadComparePaks( clc.downloadList, sizeof( clc.downloadList ), qtrue ) ) ) )
-		{
-
-			Com_Printf( "Need paks: %s\n", clc.downloadList );
-			
-			if ( *clc.downloadList ) 
-			{
-				clc.downloadType = DT_CLIENT_CONNECT;
-				Q_strncpyz( clc.downloadMap, FS_GetAutoloadMap(), sizeof( clc.downloadMap ) );
-
-				// if autodownloading is not enabled on the server
-				clc.state = CA_CONNECTED;
-
-				*clc.downloadTempName = *clc.downloadName = 0;
-				Cvar_Set( "cl_downloadName", "" );
-
-				CL_NextDownload();
-				return;
-			}
-		}
-	} else
-#endif
   if ( !(cl_allowDownload->integer & DLF_ENABLE) )
   {
     // autodownload is disabled on the client
@@ -3127,7 +2947,6 @@ void CL_Frame ( int msec ) {
 			SCR_UpdateScreen();
 			S_Update();
 			Con_RunConsole();
-			ChatCon_RunConsole();
 			cls.framecount++;
 			return;
 		}
@@ -3243,7 +3062,6 @@ void CL_Frame ( int msec ) {
 	SCR_RunCinematic();
 
 	Con_RunConsole();
-	ChatCon_RunConsole();
 
 	cls.framecount++;
 }
@@ -3314,8 +3132,6 @@ void CL_InitRenderer( void ) {
 	cls.consoleShader = re.RegisterShader( "console" );
 	g_console_field_width = cls.glconfig.vidWidth / SMALLCHAR_WIDTH - 2;
 	g_consoleField.widthInChars = g_console_field_width;
-	g_chatconsole_field_width = cls.glconfig.vidWidth / SMALLCHAR_WIDTH - 2;
-	g_chatconsoleField.widthInChars = g_chatconsole_field_width;
 }
 
 /*
@@ -3622,136 +3438,54 @@ static void CL_GenerateQKey(void)
 	}
 } 
 
-#ifdef USE_CURL
-void CL_DownloadMap_f( void )
-{
-	char map_filename[MAX_OSPATH + 1];
-	char *p;
+void CL_Sayto_f( void ) {
+	char		*rawname;
+	char		name[MAX_NAME_LENGTH];
+	char		cleanName[MAX_NAME_LENGTH];
+	const char	*info;
+	int			count;
+	int			i;
+	int			clientNum;
+	char		*p;
 
-	if( Cmd_Argc( ) != 2 )
-	{
-		Com_Printf( "Usage: downloadMap <filename>\n" );
-		return;
-	}
-	if( fs_autoload->integer <= 0 )
-	{
-		Com_Printf( "Autoload needs to be enabled. (fs_autoload)\n" );
-		return;
-	}
-
-	if( *clc.downloadList ) 
-	{
-		Com_Printf( "Download still in progress.\n" );
-		return;
-	}
-	Q_strncpyz( map_filename, Cmd_ArgsFrom( 1 ), sizeof( map_filename ) );
-	if( strstr( map_filename, "@" ) != NULL )
-	{
-		Com_Printf( "Cannot download files with the \"at sign\" (@) character.\n" );
-		return;
-	}
-	p = strstr( map_filename, ".bsp" );
-	if( p != NULL )
-	{
-		*p = '\0';
-	
-	}
-
-	FS_CompareMapPaks( clc.downloadList, sizeof( clc.downloadList ), map_filename, qtrue );
-
-	if( *clc.downloadList == '\0' )
-	{
-		Com_Printf( "File(s) already exist.\n" );
+	if ( Cmd_Argc() < 3 ) {
+		Com_Printf ("sayto <player name> <text>\n");
 		return;
 	}
 
-	*clc.downloadTempName = *clc.downloadName = 0;
-	Cvar_Set( "cl_downloadName", "" );
+	rawname = Cmd_Argv(1);
 
-	clc.downloadPreState = clc.state;
-	Q_strncpyz( clc.downloadMap, map_filename, sizeof( clc.downloadMap ) );
-	clc.downloadType = DT_DOWNLOADMAP_COMMAND;
-	clc.state = CA_CONNECTED;
-	Key_SetCatcher( 0 );
-	SCR_UpdateScreen();
+	Com_FieldStringToPlayerName( name, MAX_NAME_LENGTH, rawname );
 
-	CL_NextDownload();
-	
-}
+	info = cl.gameState.stringData + cl.gameState.stringOffsets[CS_SERVERINFO];
+	count = atoi( Info_ValueForKey( info, "sv_maxclients" ) );
 
-void CL_DownloadPk3_f( void )
-{
-	char filename[MAX_OSPATH + 1];
-	char *p;
-	char downloadfile[MAX_OSPATH + 1];
-	long filesize;
+	clientNum = -1;
+	for( i = 0; i < count; i++ ) {
 
-	if( Cmd_Argc( ) != 2 )
+		info = cl.gameState.stringData + cl.gameState.stringOffsets[CS_PLAYERS+i];
+		Q_strncpyz( cleanName, Info_ValueForKey( info, "n" ), sizeof(cleanName) );
+		Q_CleanStr( cleanName );
+
+		if ( !Q_stricmp( cleanName, name ) ) {
+			clientNum = i;
+			break;
+		}
+	}
+	if( clientNum <= -1 )
 	{
-		Com_Printf( "Usage: downloadPk3 <filename>\n" );
+		Com_Printf ("No such player name: %s.\n", name);
 		return;
 	}
 
-	if( *clc.downloadList ) 
-	{
-		Com_Printf( "Download still in progress.\n" );
-		return;
-	}
-	Q_strncpyz( filename, Cmd_ArgsFrom( 1 ), sizeof( filename ) );
-	if( strstr( filename, "@" ) != NULL )
-	{
-		Com_Printf( "Cannot download files with the \"at sign\" (@) character.\n" );
-		return;
-	}
-	p = strstr( filename, ".pk3" );
-	if( p == NULL )
-	{
-		Q_strcat( filename, sizeof( filename ), ".pk3" );
+	p = Cmd_ArgsFrom(2);
+
+	if ( *p == '"' ) {
+		p++;
+		p[strlen(p)-1] = 0;
 	}
 
-	if( fs_autoload->integer > 0 )
-	{
-		Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/autoload/maps/%s", BASEGAME, filename );
-	} else
-	{
-		Com_sprintf( downloadfile, sizeof( downloadfile ), "%s/%s", FS_GetCurrentGameDir(), filename );
-	}
-
-	filesize = FS_FOpenFileRead( downloadfile, NULL, qfalse );
-	if( filesize > 0 )
-	{
-		Com_Printf( "File already exist.\n" );
-		return;
-	}
-
-	Com_sprintf( clc.downloadList, sizeof( clc.downloadList ), "@%s@%s", FS_ReturnFilename( downloadfile ), downloadfile ); //"@remote@local"
-
-	*clc.downloadTempName = *clc.downloadName = 0;
-	Cvar_Set( "cl_downloadName", "" );
-
-	clc.downloadPreState = clc.state;
-	clc.downloadType = DT_DOWNLOADPK3_COMMAND;
-	clc.state = CA_CONNECTED;
-	Key_SetCatcher( 0 );
-	SCR_UpdateScreen();
-
-	CL_NextDownload();
-}
-#endif
-
-void CL_DownloadCheckMap_f( void )
-{
-	char map_filename[MAX_OSPATH + 1];
-
-	if( Cmd_Argc( ) != 2 )
-	{
-		Com_Printf( "Usage: downloadCheckMap <filename>\n" );
-		return;
-	}
-
-	Q_strncpyz( map_filename, Cmd_ArgsFrom( 1 ), sizeof( map_filename ) );
-
-	FS_PrintMapZipChecksum( map_filename, qtrue );
+	CL_AddReliableCommand(va("tell %i \"%s\"", clientNum, p ), qfalse);
 }
 
 /*
@@ -3763,7 +3497,6 @@ void CL_Init( void ) {
 	Com_Printf( "----- Client Initialization -----\n" );
 
 	Con_Init ();
-	ChatCon_Init ();
 
 	if(!com_fullyInitialized)
 	{
@@ -3807,7 +3540,7 @@ void CL_Init( void ) {
 	cl_pitchspeed = Cvar_Get ("cl_pitchspeed", "140", CVAR_ARCHIVE);
 	cl_anglespeedkey = Cvar_Get ("cl_anglespeedkey", "1.5", 0);
 
-	cl_maxpackets = Cvar_Get ("cl_maxpackets", "125", CVAR_ARCHIVE );
+	cl_maxpackets = Cvar_Get ("cl_maxpackets", "30", CVAR_ARCHIVE );
 	cl_packetdup = Cvar_Get ("cl_packetdup", "1", CVAR_ARCHIVE );
 
 	cl_run = Cvar_Get ("cl_run", "1", CVAR_ARCHIVE);
@@ -3826,10 +3559,6 @@ void CL_Init( void ) {
 	cl_showMouseRate = Cvar_Get ("cl_showmouserate", "0", 0);
 
 	cl_allowDownload = Cvar_Get ("cl_allowDownload", "0", CVAR_ARCHIVE);
-#ifdef USE_CURL
-	cl_mapAutoDownload = Cvar_Get ("cl_mapAutoDownload", "1", CVAR_ARCHIVE);
-	cl_mapAutoDownload_source = Cvar_Get ("cl_mapAutoDownload_source", "http://ws.q3df.org/maps/downloads/", CVAR_ARCHIVE);
-#endif
 #ifdef USE_CURL_DLOPEN
 	cl_cURLLib = Cvar_Get("cl_cURLLib", DEFAULT_CURL_LIB, CVAR_ARCHIVE | CVAR_PROTECTED);
 #endif
@@ -3891,7 +3620,7 @@ void CL_Init( void ) {
 	// userinfo
 	Cvar_Get ("name", "UnnamedPlayer", CVAR_USERINFO | CVAR_ARCHIVE );
 	cl_rate = Cvar_Get ("rate", "25000", CVAR_USERINFO | CVAR_ARCHIVE );
-	Cvar_Get ("snaps", "125", CVAR_USERINFO | CVAR_ARCHIVE );
+	Cvar_Get ("snaps", "20", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("model", "sarge", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("headmodel", "sarge", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("team_model", "james", CVAR_USERINFO | CVAR_ARCHIVE );
@@ -3961,17 +3690,13 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("model", CL_SetModel_f );
 	Cmd_AddCommand ("video", CL_Video_f );
 	Cmd_AddCommand ("stopvideo", CL_StopVideo_f );
-#ifdef USE_CURL
-	Cmd_AddCommand ("downloadMap", CL_DownloadMap_f );
-	Cmd_AddCommand ("downloadPk3", CL_DownloadPk3_f );
-#endif
-	Cmd_AddCommand ("downloadCheckMap", CL_DownloadCheckMap_f );
+	if( !com_dedicated->integer ) {
+		Cmd_AddCommand ("sayto", CL_Sayto_f );
+		Cmd_SetCommandCompletionFunc( "sayto", CL_CompletePlayerName );
+	}
 	CL_InitRef();
 
 	SCR_Init ();
-	HUD_Init (); // snap hud
-
-	cg_teamChatsOnly = Cvar_Get( "cg_teamChatsOnly", "0", CVAR_ARCHIVE);
 
 //	Cbuf_Execute ();
 
@@ -4041,7 +3766,6 @@ void CL_Shutdown(char *finalmsg, qboolean disconnect, qboolean quit)
 
 	CL_ShutdownInput();
 	Con_Shutdown();
-	ChatCon_Shutdown();
 
 	Cvar_Set( "cl_running", "0" );
 

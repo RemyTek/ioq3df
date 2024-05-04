@@ -33,6 +33,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "../client/client.h"
 #include "../sys/sys_local.h"
 
+#if !SDL_VERSION_ATLEAST(2, 0, 17)
+#define KMOD_SCROLL KMOD_RESERVED
+#endif
+
 unsigned int mouse_button_click_x;
 unsigned int mouse_button_click_y;
 
@@ -1219,11 +1223,13 @@ void IN_Frame( void )
 		// Console is down in windowed mode
 		IN_DeactivateMouse( cls.glconfig.isFullscreen );
 	}
+/*
 	else if( !cls.glconfig.isFullscreen && ( Key_GetCatcher( ) & KEYCATCH_CHATCONSOLE ) )
 	{
 		// Console is down in windowed mode
 		IN_DeactivateMouse( );
 	}
+*/
 	else if( !cls.glconfig.isFullscreen && loading )
 	{
 		// Loading in windowed mode
